@@ -1,0 +1,20 @@
+[project]
+id = ""
+
+[api]
+port = 54321
+schemas = ["public"]
+
+[db]
+port = 54322
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["https://getcraftfolio.com"]
+jwt_expiry = 3600
+
+[auth.external.google]
+enabled = true
+
+[auth.external.apple]
+enabled = true
