@@ -9,6 +9,8 @@ export type NeedleMaterial = 'bamboo' | 'metal' | 'wood' | 'plastic';
 
 export interface Database {
   public: {
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
     Tables: {
       craft_types: {
         Row: {
@@ -26,6 +28,7 @@ export interface Database {
           name?: string;
           is_custom?: boolean;
         };
+        Relationships: [];
       };
       users: {
         Row: {
@@ -52,6 +55,7 @@ export interface Database {
           portfolio_slug?: string | null;
           is_paid?: boolean;
         };
+        Relationships: [];
       };
       projects: {
         Row: {
@@ -87,6 +91,7 @@ export interface Database {
           technique_notes?: string | null;
           is_shareable?: boolean;
         };
+        Relationships: [];
       };
       project_photos: {
         Row: {
@@ -109,6 +114,7 @@ export interface Database {
           is_cover?: boolean;
           sort_order?: number;
         };
+        Relationships: [];
       };
       materials: {
         Row: {
@@ -174,6 +180,7 @@ export interface Database {
           notes?: string | null;
           is_favorited?: boolean;
         };
+        Relationships: [];
       };
       project_materials: {
         Row: {
@@ -194,6 +201,7 @@ export interface Database {
           quantity_used?: string | null;
           usage_notes?: string | null;
         };
+        Relationships: [];
       };
     };
   };

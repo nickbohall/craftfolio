@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(which expo:*)",
+      "Bash(npx create-expo-app@latest . --template blank-typescript --yes 2>&1)",
+      "Bash(mv /home/sleepycornbread/projects/craftfolio/CLAUDE.md /tmp/CLAUDE.md.bak && mv /home/sleepycornbread/projects/craftfolio/.claude /tmp/.claude.bak 2>/dev/null; npx create-expo-app@latest /home/sleepycornbread/projects/craftfolio --template blank-typescript --yes 2>&1)"
+    ]
+  }
+}

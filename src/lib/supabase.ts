@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
+import { File as ExpoFile } from 'expo-file-system';
 import type { Database } from '../types/database';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
@@ -60,4 +61,23 @@ export async function signInWithEmail(email: string, password: string) {
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
+}
+
+export async function uploadProjectPhoto(localUri: string, userId: string): Promise<string> {
+  const file = new ExpoFile(localUri);
+  const arrayBuffer = await file.arrayBuffer();
+
+  const filename = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
+
+  const { error } = await supabase.storage
+    .from('project-photos')
+    .upload(filename, arrayBuffer, { contentType: 'image/jpeg' });
+
+  if (error) throw error;
+
+  const { data } = supabase.storage
+    .from('project-photos')
+    .getPublicUrl(filename);
+
+  return data.publicUrl;
 }

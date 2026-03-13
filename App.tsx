@@ -1,32 +1,56 @@
 import React from 'react';
 import {
   View,
-  Text,
-  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { useAuth } from './src/hooks/useAuth';
-import { signOut } from './src/lib/supabase';
 import { Colors } from './src/constants/colors';
 import SignInScreen from './src/screens/auth/SignInScreen';
 import SignUpScreen from './src/screens/auth/SignUpScreen';
+import AddPhotosScreen from './src/screens/projects/AddPhotosScreen';
+import AddDetailsScreen from './src/screens/projects/AddDetailsScreen';
+import AddMaterialScreen from './src/screens/projects/AddMaterialScreen';
+import ProjectDetailScreen from './src/screens/projects/ProjectDetailScreen';
+import EditProjectScreen from './src/screens/projects/EditProjectScreen';
+import JournalScreen from './src/screens/journal/JournalScreen';
+import ProfileScreen from './src/screens/profile/ProfileScreen';
+import UpgradeScreen from './src/screens/profile/UpgradeScreen';
 
-const Stack = createNativeStackNavigator();
+type RootStackParamList = {
+  Tabs: undefined;
+  SignIn: undefined;
+  SignUp: undefined;
+  AddPhotos: undefined;
+  AddDetails: { photos: string[] };
+  AddMaterial: { projectId: string; materialId?: string };
+  ProjectDetail: { projectId: string };
+  EditProject: { projectId: string };
+  Upgrade: undefined;
+};
 
-function AuthenticatedPlaceholder() {
-  const { user } = useAuth();
+const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator();
 
+function TabNavigator() {
   return (
-    <View style={styles.placeholder}>
-      <Text style={styles.placeholderTitle}>Authenticated</Text>
-      <Text style={styles.placeholderEmail}>{user?.email}</Text>
-      <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
-        <Text style={styles.signOutText}>Sign Out</Text>
-      </TouchableOpacity>
-    </View>
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarActiveTintColor: Colors.primary,
+        tabBarInactiveTintColor: Colors.gray,
+        tabBarStyle: {
+          backgroundColor: Colors.white,
+          borderTopColor: Colors.border,
+        },
+      }}
+    >
+      <Tab.Screen name="Journal" component={JournalScreen} />
+      <Tab.Screen name="Profile" component={ProfileScreen} />
+    </Tab.Navigator>
   );
 }
 
@@ -45,7 +69,15 @@ export default function App() {
     <NavigationContainer>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {session ? (
-          <Stack.Screen name="Home" component={AuthenticatedPlaceholder} />
+          <>
+            <Stack.Screen name="Tabs" component={TabNavigator} />
+            <Stack.Screen name="AddPhotos" component={AddPhotosScreen} />
+            <Stack.Screen name="AddDetails" component={AddDetailsScreen} />
+            <Stack.Screen name="AddMaterial" component={AddMaterialScreen} />
+            <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
+            <Stack.Screen name="EditProject" component={EditProjectScreen} />
+            <Stack.Screen name="Upgrade" component={UpgradeScreen} />
+          </>
         ) : (
           <>
             <Stack.Screen name="SignIn" component={SignInScreen} />
@@ -63,34 +95,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.background,
-  },
-  placeholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    paddingHorizontal: 32,
-  },
-  placeholderTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.primary,
-    marginBottom: 8,
-  },
-  placeholderEmail: {
-    fontSize: 16,
-    color: Colors.textSecondary,
-    marginBottom: 32,
-  },
-  signOutButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-  },
-  signOutText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '600',
   },
 });
