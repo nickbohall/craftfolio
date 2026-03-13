@@ -1,14 +1,13 @@
 -- Craftfolio initial schema
 -- Tables: craft_types, users, projects, project_photos, materials, project_materials
 
--- Enable UUID generation
-create extension if not exists "uuid-ossp";
+-- gen_random_uuid() is built into Postgres 13+ (no extension needed)
 
 -- ============================================================
 -- craft_types (seeded lookup table)
 -- ============================================================
 create table craft_types (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   name text unique not null,
   is_custom boolean not null default false,
   created_at timestamptz not null default now()
@@ -31,7 +30,7 @@ create table users (
 -- projects
 -- ============================================================
 create table projects (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
   title text not null,
   craft_type_id uuid references craft_types(id) on delete set null,
@@ -51,7 +50,7 @@ create index idx_projects_craft_type_id on projects(craft_type_id);
 -- project_photos
 -- ============================================================
 create table project_photos (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   project_id uuid not null references projects(id) on delete cascade,
   storage_url text not null,
   is_cover boolean not null default false,
@@ -65,7 +64,7 @@ create index idx_project_photos_project_id on project_photos(project_id);
 -- materials
 -- ============================================================
 create table materials (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   user_id uuid not null references users(id) on delete cascade,
   material_type text check (material_type in ('yarn', 'thread/floss', 'fabric', 'resin', 'needle', 'hook', 'other')),
   brand text,
@@ -97,7 +96,7 @@ create index idx_materials_user_id on materials(user_id);
 -- project_materials (join table)
 -- ============================================================
 create table project_materials (
-  id uuid primary key default uuid_generate_v4(),
+  id uuid primary key default gen_random_uuid(),
   project_id uuid not null references projects(id) on delete cascade,
   material_id uuid not null references materials(id) on delete cascade,
   quantity_used text,
