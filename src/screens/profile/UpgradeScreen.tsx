@@ -61,6 +61,13 @@ export default function UpgradeScreen({ navigation }: any) {
       >
         <Text style={styles.restoreText}>Restore Purchase</Text>
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.backLink}
+        onPress={() => navigation.goBack()}
+      >
+        <Text style={styles.backLinkText}>Go Back</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -74,8 +81,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '500',
     color: Colors.text,
     marginBottom: 8,
   },
@@ -86,8 +93,10 @@ const styles = StyleSheet.create({
   },
   features: {
     alignSelf: 'stretch',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.cardBackground,
     borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
     padding: 20,
     marginBottom: 32,
   },
@@ -98,15 +107,15 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: 36,
-    fontWeight: '700',
+    fontWeight: '500',
     color: Colors.text,
     marginBottom: 16,
   },
   purchaseButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 48,
+    borderRadius: 24,
+    height: 52,
+    justifyContent: 'center',
     width: '100%',
     alignItems: 'center',
   },
@@ -114,9 +123,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   purchaseButtonText: {
-    color: Colors.white,
+    color: Colors.text,
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: '500',
   },
   restoreButton: {
     marginTop: 16,
@@ -126,16 +135,26 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
   },
+  backLink: {
+    marginTop: 12,
+    paddingVertical: 12,
+  },
+  backLinkText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+  },
   backButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 24,
+    height: 52,
+    justifyContent: 'center',
     paddingHorizontal: 32,
     marginTop: 24,
+    alignItems: 'center',
   },
   backButtonText: {
-    color: Colors.white,
+    color: Colors.text,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });

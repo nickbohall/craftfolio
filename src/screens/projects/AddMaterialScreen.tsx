@@ -521,29 +521,32 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '500',
     color: Colors.text,
     marginBottom: 24,
   },
   scanButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 24,
+    height: 52,
+    justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 24,
   },
   scanButtonText: {
-    color: Colors.white,
+    color: Colors.text,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textSecondary,
     marginBottom: 6,
     marginTop: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   typeGrid: {
     flexDirection: 'row',
@@ -553,14 +556,14 @@ const styles = StyleSheet.create({
   },
   typeButton: {
     backgroundColor: Colors.white,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: Colors.border,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
   typeButtonSelected: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.white,
     borderColor: Colors.primary,
   },
   typeButtonText: {
@@ -569,7 +572,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   typeButtonTextSelected: {
-    color: Colors.white,
+    color: Colors.text,
   },
   input: {
     backgroundColor: Colors.white,
@@ -577,7 +580,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    height: 48,
     fontSize: 16,
     color: Colors.text,
   },
@@ -587,7 +590,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    height: 48,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -611,8 +614,9 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 24,
+    height: 52,
+    justifyContent: 'center',
     alignItems: 'center',
     marginTop: 32,
   },
@@ -620,9 +624,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveText: {
-    color: Colors.white,
+    color: Colors.text,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   cancelButton: {
     alignItems: 'center',
@@ -657,12 +661,12 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.text,
   },
   modalDone: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.primary,
   },
   pickerRow: {
@@ -680,6 +684,6 @@ const styles = StyleSheet.create({
   },
   pickerRowTextSelected: {
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });

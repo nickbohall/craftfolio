@@ -3,6 +3,7 @@ import {
   View,
   Text,
   TextInput,
+  Image,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
@@ -45,6 +46,11 @@ export default function SignInScreen({ navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.inner}>
+        <Image
+          source={require('../../../assets/images/mascot-neutral.png')}
+          style={styles.mascot}
+          resizeMode="contain"
+        />
         <Text style={styles.title}>Craftfolio</Text>
         <Text style={styles.subtitle}>Your handmade portfolio.</Text>
 
@@ -100,16 +106,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: 32,
+    alignItems: 'center',
+  },
+  mascot: {
+    width: 120,
+    height: 120,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 36,
-    fontWeight: '700',
-    color: Colors.primary,
+    fontSize: 28,
+    fontWeight: '500',
+    color: Colors.text,
     textAlign: 'center',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.textSecondary,
     textAlign: 'center',
     marginBottom: 32,
@@ -126,26 +138,29 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    height: 48,
     fontSize: 16,
     color: Colors.text,
     marginBottom: 12,
+    alignSelf: 'stretch',
   },
   button: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 24,
+    height: 52,
+    justifyContent: 'center',
     alignItems: 'center',
     marginTop: 8,
     marginBottom: 24,
+    alignSelf: 'stretch',
   },
   buttonDisabled: {
     opacity: 0.6,
   },
   buttonText: {
-    color: Colors.white,
+    color: Colors.text,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   link: {
     textAlign: 'center',
@@ -154,6 +169,6 @@ const styles = StyleSheet.create({
   },
   linkBold: {
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });

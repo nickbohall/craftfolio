@@ -340,17 +340,19 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   heading: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '500',
     color: Colors.text,
     marginBottom: 8,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textSecondary,
     marginBottom: 6,
     marginTop: 16,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   input: {
     backgroundColor: Colors.white,
@@ -358,13 +360,14 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    height: 48,
     fontSize: 16,
     color: Colors.text,
   },
   textArea: {
+    height: undefined,
     minHeight: 100,
-    paddingTop: 14,
+    paddingVertical: 14,
   },
   pickerButton: {
     backgroundColor: Colors.white,
@@ -372,7 +375,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    height: 48,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -411,12 +414,12 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.text,
   },
   modalDone: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.primary,
   },
   craftTypeRow: {
@@ -434,7 +437,7 @@ const styles = StyleSheet.create({
   },
   craftTypeNameSelected: {
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   error: {
     color: Colors.error,
@@ -444,8 +447,9 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 24,
+    height: 52,
+    justifyContent: 'center',
     alignItems: 'center',
     marginTop: 32,
   },
@@ -453,9 +457,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveText: {
-    color: Colors.white,
+    color: Colors.text,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   cancelButton: {
     alignItems: 'center',
@@ -496,6 +500,6 @@ const styles = StyleSheet.create({
   lockedText: {
     fontSize: 14,
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '500',
   },
 });

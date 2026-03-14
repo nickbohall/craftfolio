@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Alert } from 'react-native';
 import {
   checkPremiumStatus,
@@ -8,7 +8,23 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from './useAuth';
 
-export function usePremium() {
+type PremiumContextType = {
+  isPremium: boolean;
+  loading: boolean;
+  purchase: () => Promise<void>;
+  restore: () => Promise<void>;
+  devToggle: () => void;
+};
+
+const PremiumContext = createContext<PremiumContextType>({
+  isPremium: false,
+  loading: true,
+  purchase: async () => {},
+  restore: async () => {},
+  devToggle: () => {},
+});
+
+export function PremiumProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [isPremium, setIsPremium] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -60,5 +76,19 @@ export function usePremium() {
     }
   }, [updateDatabase]);
 
-  return { isPremium, loading, purchase, restore };
+  const devToggle = useCallback(() => {
+    setIsPremium((prev) => {
+      const next = !prev;
+      Alert.alert('Dev Mode', `Premium ${next ? 'enabled' : 'disabled'}`);
+      return next;
+    });
+  }, []);
+
+  const value = { isPremium, loading, purchase, restore, devToggle };
+
+  return React.createElement(PremiumContext.Provider, { value }, children);
+}
+
+export function usePremium() {
+  return useContext(PremiumContext);
 }

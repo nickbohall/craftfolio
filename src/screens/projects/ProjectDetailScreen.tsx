@@ -4,6 +4,7 @@ import {
   Text,
   Image,
   ScrollView,
+  Share,
   StyleSheet,
   Dimensions,
   ActivityIndicator,
@@ -17,11 +18,13 @@ import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
+import { usePremium } from '../../hooks/usePremium';
 
 type RootStackParamList = {
   ProjectDetail: { projectId: string };
   EditProject: { projectId: string };
   AddMaterial: { projectId: string; materialId?: string };
+  Upgrade: undefined;
 };
 
 type Photo = {
@@ -66,6 +69,7 @@ export default function ProjectDetailScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const route = useRoute<RouteProp<RootStackParamList, 'ProjectDetail'>>();
   const { projectId } = route.params;
+  const { isPremium } = usePremium();
 
   const [project, setProject] = useState<Project | null>(null);
   const [materials, setMaterials] = useState<ProjectMaterial[]>([]);
@@ -151,6 +155,35 @@ export default function ProjectDetailScreen() {
     );
   }
 
+  function handleDeleteProject() {
+    Alert.alert(
+      'Delete Project',
+      'Are you sure? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await supabase.from('project_materials').delete().eq('project_id', projectId);
+            await supabase.from('project_photos').delete().eq('project_id', projectId);
+            await supabase.from('projects').delete().eq('id', projectId);
+            navigation.goBack();
+          },
+        },
+      ]
+    );
+  }
+
+  function handleShareProject() {
+    if (!isPremium) {
+      navigation.navigate('Upgrade');
+      return;
+    }
+    const url = `https://getcraftfolio.com/p/${projectId}`;
+    Share.share({ message: `Check out what I made: ${url}`, url });
+  }
+
   function getMaterialTitle(mat: Material): string {
     const parts = [mat.brand, mat.name].filter(Boolean);
     return parts.length > 0 ? parts.join(' ') : 'Unnamed material';
@@ -181,12 +214,17 @@ export default function ProjectDetailScreen() {
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
           <Text style={styles.backText}>{'< Back'}</Text>
         </TouchableOpacity>
-        <TouchableOpacity
-          onPress={() => navigation.navigate('EditProject', { projectId })}
-          style={styles.headerButton}
-        >
-          <Text style={styles.editText}>Edit</Text>
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          <TouchableOpacity onPress={handleShareProject} style={styles.headerButton}>
+            <Text style={styles.shareText}>Share</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('EditProject', { projectId })}
+            style={styles.headerButton}
+          >
+            <Text style={styles.editText}>Edit</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
@@ -291,6 +329,10 @@ export default function ProjectDetailScreen() {
             <Text style={styles.addMaterialText}>+ Add Material</Text>
           </TouchableOpacity>
         </View>
+
+        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteProject}>
+          <Text style={styles.deleteButtonText}>Delete Project</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -320,18 +362,27 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     backgroundColor: Colors.background,
   },
+  headerRight: {
+    flexDirection: 'row',
+    gap: 16,
+  },
   headerButton: {
     padding: 4,
   },
   backText: {
     fontSize: 16,
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  shareText: {
+    fontSize: 16,
+    color: Colors.primary,
+    fontWeight: '500',
   },
   editText: {
     fontSize: 16,
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   scroll: {
     flex: 1,
@@ -376,14 +427,14 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 24,
-    fontWeight: '700',
+    fontWeight: '500',
     color: Colors.text,
     marginBottom: 4,
   },
   craftType: {
     fontSize: 15,
     color: Colors.primary,
-    fontWeight: '600',
+    fontWeight: '500',
     marginBottom: 8,
   },
   detail: {
@@ -396,11 +447,11 @@ const styles = StyleSheet.create({
   },
   notesLabel: {
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.textSecondary,
     marginBottom: 4,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
   },
   notesText: {
     fontSize: 15,
@@ -412,10 +463,12 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   sectionHeader: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.textSecondary,
     marginBottom: 12,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
   },
   emptyMaterials: {
     fontSize: 15,
@@ -432,7 +485,7 @@ const styles = StyleSheet.create({
   },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: Colors.lavender + '33',
+    backgroundColor: Colors.primary,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -440,13 +493,13 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: Colors.primary,
+    fontWeight: '500',
+    color: Colors.text,
     textTransform: 'capitalize',
   },
   materialTitle: {
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '500',
     color: Colors.text,
     marginBottom: 2,
   },
@@ -467,6 +520,17 @@ const styles = StyleSheet.create({
   addMaterialText: {
     color: Colors.primary,
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '500',
+  },
+  deleteButton: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginTop: 24,
+    marginHorizontal: 20,
+  },
+  deleteButtonText: {
+    color: Colors.error,
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

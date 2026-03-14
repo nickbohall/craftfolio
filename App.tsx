@@ -1,13 +1,17 @@
 import React from 'react';
 import {
   View,
+  Text,
+  Image,
   StyleSheet,
   ActivityIndicator,
 } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from './src/hooks/useAuth';
+import { PremiumProvider } from './src/hooks/usePremium';
 import { Colors } from './src/constants/colors';
 import SignInScreen from './src/screens/auth/SignInScreen';
 import SignUpScreen from './src/screens/auth/SignUpScreen';
@@ -48,8 +52,24 @@ function TabNavigator() {
         },
       }}
     >
-      <Tab.Screen name="Journal" component={JournalScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="Journal"
+        component={JournalScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="book-outline" size={size} color={color} />
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="person-outline" size={size} color={color} />
+          ),
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -60,32 +80,41 @@ export default function App() {
   if (loading) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <Image
+          source={require('./assets/images/mascot-neutral.png')}
+          style={styles.splashMascot}
+          resizeMode="contain"
+        />
+        <Text style={styles.splashTitle}>Craftfolio</Text>
+        <Text style={styles.splashTagline}>Your handmade portfolio.</Text>
+        <ActivityIndicator size="small" color={Colors.primary} style={{ marginTop: 24 }} />
       </View>
     );
   }
 
   return (
-    <NavigationContainer>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
-        {session ? (
-          <>
-            <Stack.Screen name="Tabs" component={TabNavigator} />
-            <Stack.Screen name="AddPhotos" component={AddPhotosScreen} />
-            <Stack.Screen name="AddDetails" component={AddDetailsScreen} />
-            <Stack.Screen name="AddMaterial" component={AddMaterialScreen} />
-            <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
-            <Stack.Screen name="EditProject" component={EditProjectScreen} />
-            <Stack.Screen name="Upgrade" component={UpgradeScreen} />
-          </>
-        ) : (
-          <>
-            <Stack.Screen name="SignIn" component={SignInScreen} />
-            <Stack.Screen name="SignUp" component={SignUpScreen} />
-          </>
-        )}
-      </Stack.Navigator>
-    </NavigationContainer>
+    <PremiumProvider>
+      <NavigationContainer>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          {session ? (
+            <>
+              <Stack.Screen name="Tabs" component={TabNavigator} />
+              <Stack.Screen name="AddPhotos" component={AddPhotosScreen} />
+              <Stack.Screen name="AddDetails" component={AddDetailsScreen} />
+              <Stack.Screen name="AddMaterial" component={AddMaterialScreen} />
+              <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
+              <Stack.Screen name="EditProject" component={EditProjectScreen} />
+              <Stack.Screen name="Upgrade" component={UpgradeScreen} />
+            </>
+          ) : (
+            <>
+              <Stack.Screen name="SignIn" component={SignInScreen} />
+              <Stack.Screen name="SignUp" component={SignUpScreen} />
+            </>
+          )}
+        </Stack.Navigator>
+      </NavigationContainer>
+    </PremiumProvider>
   );
 }
 
@@ -95,5 +124,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.background,
+  },
+  splashMascot: {
+    width: 180,
+    height: 180,
+  },
+  splashTitle: {
+    fontSize: 28,
+    fontWeight: '500',
+    color: Colors.text,
+    marginTop: 16,
+  },
+  splashTagline: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    marginTop: 4,
   },
 });

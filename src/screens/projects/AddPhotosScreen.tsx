@@ -134,8 +134,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '500',
     color: Colors.text,
     marginBottom: 8,
   },
@@ -178,9 +178,9 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   coverBadgeText: {
-    color: Colors.white,
+    color: Colors.text,
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   removeButton: {
     position: 'absolute',
@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   removeButtonText: {
     color: Colors.white,
     fontSize: 16,
-    fontWeight: '700',
+    fontWeight: '500',
     lineHeight: 18,
   },
   addPhotoButton: {
@@ -236,17 +236,18 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
+    borderRadius: 24,
+    height: 52,
+    justifyContent: 'center',
     paddingHorizontal: 32,
   },
   nextButtonDisabled: {
     backgroundColor: Colors.lightGray,
   },
   nextText: {
-    color: Colors.white,
+    color: Colors.text,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '500',
   },
   nextTextDisabled: {
     color: Colors.textSecondary,

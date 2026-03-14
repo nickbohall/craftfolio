@@ -1,6 +1,7 @@
+cat > app.json << 'EOF'
 {
   "expo": {
-    "name": "craftfolio",
+    "name": "Craftfolio",
     "slug": "craftfolio",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,17 +10,17 @@
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
+      "backgroundColor": "#FAF8F5"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.getcraftfolio.app"
     },
     "android": {
-      "package": "com.sleepycornbread.craftfolio",
+      "package": "com.getcraftfolio.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
+        "backgroundColor": "#C3B1E1",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false
@@ -32,3 +33,4 @@
     ]
   }
 }
+EOF

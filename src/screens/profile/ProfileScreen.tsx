@@ -1,31 +1,86 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, Image, TouchableOpacity, Share, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/colors';
-import { signOut } from '../../lib/supabase';
+import { supabase, signOut } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { usePremium } from '../../hooks/usePremium';
 
 export default function ProfileScreen() {
   const { user } = useAuth();
-  const { isPremium } = usePremium();
+  const { isPremium, devToggle } = usePremium();
   const navigation = useNavigation<any>();
+  const [portfolioSlug, setPortfolioSlug] = useState<string | null>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      supabase
+        .from('users')
+        .select('portfolio_slug')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          if (data) setPortfolioSlug((data as any).portfolio_slug ?? null);
+        });
+    }, [user])
+  );
+
+  function handleSharePortfolio() {
+    if (!isPremium) {
+      navigation.navigate('Upgrade');
+      return;
+    }
+    const slug = portfolioSlug ?? user?.id;
+    const url = `https://getcraftfolio.com/u/${slug}`;
+    Share.share({ message: `Check out my craft portfolio: ${url}`, url });
+  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Profile</Text>
-      <Text style={styles.email}>{user?.email}</Text>
-      {!isPremium && (
-        <TouchableOpacity
-          style={styles.upgradeButton}
-          onPress={() => navigation.navigate('Upgrade')}
-        >
-          <Text style={styles.upgradeText}>Upgrade to Premium</Text>
+      <View style={styles.header}>
+        <Image
+          source={require('../../../assets/images/mascot-neutral.png')}
+          style={styles.mascot}
+          resizeMode="contain"
+        />
+        <Text style={styles.displayName}>{user?.user_metadata?.display_name ?? 'Crafter'}</Text>
+        <Text style={styles.email}>{user?.email}</Text>
+      </View>
+
+      <View style={styles.cardGroup}>
+        <TouchableOpacity style={styles.row} onPress={handleSharePortfolio}>
+          <Text style={styles.rowText}>Share Portfolio</Text>
+          {isPremium ? (
+            <Text style={styles.chevron}>›</Text>
+          ) : (
+            <Text style={styles.lockedText}>Premium</Text>
+          )}
         </TouchableOpacity>
-      )}
-      <TouchableOpacity style={styles.signOutButton} onPress={signOut}>
-        <Text style={styles.signOutText}>Sign Out</Text>
-      </TouchableOpacity>
+
+        {!isPremium && (
+          <TouchableOpacity
+            style={styles.row}
+            onPress={() => navigation.navigate('Upgrade')}
+          >
+            <Text style={styles.rowText}>Upgrade to Premium</Text>
+            <Text style={styles.chevron}>›</Text>
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity style={styles.row} onPress={signOut}>
+          <Text style={styles.rowText}>Sign Out</Text>
+          <Text style={styles.chevron}>›</Text>
+        </TouchableOpacity>
+
+        {__DEV__ && (
+          <TouchableOpacity style={styles.row} onPress={devToggle}>
+            <Text style={styles.rowText}>Toggle Premium (Dev)</Text>
+            <Text style={styles.devBadge}>{isPremium ? 'ON' : 'OFF'}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
     </View>
   );
 }
@@ -33,47 +88,61 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
     backgroundColor: Colors.background,
-    paddingHorizontal: 32,
+    paddingHorizontal: 20,
+    paddingTop: 60,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.text,
-    marginBottom: 8,
-  },
-  email: {
-    fontSize: 16,
-    color: Colors.textSecondary,
+  header: {
+    alignItems: 'center',
     marginBottom: 32,
   },
-  upgradeButton: {
-    backgroundColor: Colors.white,
+  mascot: {
+    width: 80,
+    height: 80,
+    marginBottom: 12,
+  },
+  displayName: {
+    fontSize: 20,
+    fontWeight: '500',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  email: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+  },
+  cardGroup: {
+    gap: 1,
+  },
+  row: {
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.border,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: Colors.primary,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    marginBottom: 16,
-    width: '100%',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 10,
   },
-  upgradeText: {
+  rowText: {
+    fontSize: 16,
+    color: Colors.text,
+    fontWeight: '400',
+  },
+  chevron: {
+    fontSize: 20,
+    color: Colors.textSecondary,
+  },
+  lockedText: {
+    fontSize: 13,
+    fontWeight: '500',
     color: Colors.primary,
-    fontSize: 16,
-    fontWeight: '600',
   },
-  signOutButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-  },
-  signOutText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '600',
+  devBadge: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.primary,
   },
 });
