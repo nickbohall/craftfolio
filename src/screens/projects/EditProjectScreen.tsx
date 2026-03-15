@@ -11,6 +11,7 @@ import {
   FlatList,
   Platform,
   Switch,
+  KeyboardAvoidingView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../../constants/colors';
@@ -31,17 +32,30 @@ export default function EditProjectScreen({ route, navigation }: Props) {
   const { projectId } = route.params;
   const { isPremium } = usePremium();
 
+  const STATUS_OPTIONS = [
+    { value: 'not_started', label: 'Not Started' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'abandoned', label: 'Abandoned' },
+  ] as const;
+
   const [loading, setLoading] = useState(true);
   const [title, setTitle] = useState('');
+  const [status, setStatus] = useState('completed');
   const [isShareable, setIsShareable] = useState(false);
   const [craftTypes, setCraftTypes] = useState<CraftType[]>([]);
   const [selectedCraftType, setSelectedCraftType] = useState<CraftType | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [madeFor, setMadeFor] = useState('');
+  const [dateStarted, setDateStarted] = useState<Date | null>(null);
+  const [showDateStartedPicker, setShowDateStartedPicker] = useState(false);
   const [dateCompleted, setDateCompleted] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [hoursLogged, setHoursLogged] = useState('');
   const [techniqueNotes, setTechniqueNotes] = useState('');
   const [patternSource, setPatternSource] = useState('');
+  const [patternName, setPatternName] = useState('');
+  const [patternDesigner, setPatternDesigner] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -50,7 +64,7 @@ export default function EditProjectScreen({ route, navigation }: Props) {
       const [projectRes, craftTypesRes] = await Promise.all([
         supabase
           .from('projects')
-          .select('title, craft_type_id, made_for, date_completed, technique_notes, pattern_source, is_shareable')
+          .select('title, craft_type_id, made_for, date_started, date_completed, status, hours_logged, technique_notes, pattern_source, pattern_name, pattern_designer, is_shareable')
           .eq('id', projectId)
           .single(),
         supabase
@@ -66,11 +80,18 @@ export default function EditProjectScreen({ route, navigation }: Props) {
         const p = projectRes.data;
         setTitle(p.title ?? '');
         setMadeFor(p.made_for ?? '');
+        setStatus(p.status ?? 'completed');
         setTechniqueNotes(p.technique_notes ?? '');
         setPatternSource(p.pattern_source ?? '');
+        setPatternName(p.pattern_name ?? '');
+        setPatternDesigner(p.pattern_designer ?? '');
+        if (p.date_started) {
+          setDateStarted(new Date(p.date_started + 'T00:00:00'));
+        }
         if (p.date_completed) {
           setDateCompleted(new Date(p.date_completed + 'T00:00:00'));
         }
+        setHoursLogged(p.hours_logged != null ? String(p.hours_logged) : '');
         setIsShareable(p.is_shareable ?? false);
         if (p.craft_type_id) {
           const match = types.find((ct) => ct.id === p.craft_type_id);
@@ -98,9 +119,14 @@ export default function EditProjectScreen({ route, navigation }: Props) {
         title: title.trim(),
         craft_type_id: selectedCraftType?.id ?? null,
         made_for: madeFor.trim() || null,
+        status,
+        date_started: dateStarted ? dateStarted.toISOString().split('T')[0] : null,
         date_completed: dateCompleted ? dateCompleted.toISOString().split('T')[0] : null,
+        hours_logged: hoursLogged.trim() ? parseFloat(hoursLogged.trim()) : null,
         technique_notes: techniqueNotes.trim() || null,
         pattern_source: patternSource.trim() || null,
+        pattern_name: patternName.trim() || null,
+        pattern_designer: patternDesigner.trim() || null,
         is_shareable: isShareable,
       })
       .eq('id', projectId);
@@ -131,6 +157,10 @@ export default function EditProjectScreen({ route, navigation }: Props) {
   }
 
   return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
@@ -204,15 +234,66 @@ export default function EditProjectScreen({ route, navigation }: Props) {
         </View>
       </Modal>
 
-      {/* Made For */}
-      <Text style={styles.label}>Made For (optional)</Text>
-      <TextInput
-        style={styles.input}
-        value={madeFor}
-        onChangeText={setMadeFor}
-        placeholder="Who is this for?"
-        placeholderTextColor={Colors.textSecondary}
-      />
+      {/* Status */}
+      <Text style={styles.label}>Status</Text>
+      <View style={styles.statusRow}>
+        {STATUS_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[
+              styles.statusOption,
+              status === opt.value && styles.statusOptionActive,
+            ]}
+            onPress={() => setStatus(opt.value)}
+          >
+            <Text
+              style={[
+                styles.statusOptionText,
+                status === opt.value && styles.statusOptionTextActive,
+              ]}
+            >
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Date Started */}
+      <Text style={styles.label}>Date Started (optional)</Text>
+      <TouchableOpacity
+        style={styles.pickerButton}
+        onPress={() => setShowDateStartedPicker(true)}
+      >
+        <Text
+          style={[
+            styles.pickerButtonText,
+            !dateStarted && styles.placeholderText,
+          ]}
+        >
+          {dateStarted ? formatDate(dateStarted) : 'Select a date'}
+        </Text>
+      </TouchableOpacity>
+
+      {showDateStartedPicker && (
+        <DateTimePicker
+          value={dateStarted ?? new Date()}
+          mode="date"
+          maximumDate={new Date()}
+          onChange={(event, selectedDate) => {
+            if (Platform.OS === 'android') {
+              setShowDateStartedPicker(false);
+            }
+            if (event.type === 'set' && selectedDate) {
+              setDateStarted(selectedDate);
+            }
+          }}
+        />
+      )}
+      {showDateStartedPicker && Platform.OS === 'ios' && (
+        <TouchableOpacity onPress={() => setShowDateStartedPicker(false)}>
+          <Text style={styles.modalDone}>Done</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Date Completed */}
       <Text style={styles.label}>Date Completed (optional)</Text>
@@ -251,15 +332,41 @@ export default function EditProjectScreen({ route, navigation }: Props) {
         </TouchableOpacity>
       )}
 
-      {/* Share Toggle */}
-      <Text style={styles.label}>Sharing</Text>
+      {/* Hours Logged */}
+      <Text style={styles.label}>Hours Logged (optional)</Text>
+      <TextInput
+        style={styles.input}
+        value={hoursLogged}
+        onChangeText={setHoursLogged}
+        placeholder="e.g. 4.5"
+        placeholderTextColor={Colors.textSecondary}
+        keyboardType="numeric"
+      />
+
+      {/* Made For */}
+      <Text style={styles.label}>Made For (optional)</Text>
+      <TextInput
+        style={styles.input}
+        value={madeFor}
+        onChangeText={setMadeFor}
+        placeholder="Who is this for?"
+        placeholderTextColor={Colors.textSecondary}
+      />
+
+      {/* Visibility Toggle */}
+      <Text style={styles.label}>Visibility</Text>
       {isPremium ? (
         <View style={styles.shareRow}>
-          <Text style={styles.shareLabel}>Share this project</Text>
+          <View>
+            <Text style={styles.shareLabel}>{isShareable ? 'Public' : 'Private'}</Text>
+            <Text style={styles.shareHint}>
+              {isShareable ? 'Visible on your portfolio' : 'Only you can see this'}
+            </Text>
+          </View>
           <Switch
             value={isShareable}
             onValueChange={setIsShareable}
-            trackColor={{ false: Colors.lightGray, true: Colors.primary }}
+            trackColor={{ false: Colors.border, true: Colors.primary }}
             thumbColor={Colors.white}
           />
         </View>
@@ -268,13 +375,36 @@ export default function EditProjectScreen({ route, navigation }: Props) {
           style={styles.shareLockedRow}
           onPress={() => navigation.navigate('Upgrade')}
         >
-          <Text style={styles.shareLabel}>Share this project</Text>
-          <Text style={styles.lockedText}>Upgrade to share</Text>
+          <View>
+            <Text style={styles.shareLabel}>Private</Text>
+            <Text style={styles.shareHint}>Upgrade to make projects public</Text>
+          </View>
+          <Text style={styles.lockedText}>Upgrade</Text>
         </TouchableOpacity>
       )}
 
+      {/* Pattern Name */}
+      <Text style={styles.label}>Pattern Name (optional)</Text>
+      <TextInput
+        style={styles.input}
+        value={patternName}
+        onChangeText={setPatternName}
+        placeholder="e.g. Cozy Cable Cardigan"
+        placeholderTextColor={Colors.textSecondary}
+      />
+
+      {/* Pattern Designer */}
+      <Text style={styles.label}>Pattern Designer (optional)</Text>
+      <TextInput
+        style={styles.input}
+        value={patternDesigner}
+        onChangeText={setPatternDesigner}
+        placeholder="e.g. Andrea Mowry"
+        placeholderTextColor={Colors.textSecondary}
+      />
+
       {/* Pattern Source */}
-      <Text style={styles.label}>Pattern Source (optional)</Text>
+      <Text style={styles.label}>Pattern Link / Source (optional)</Text>
       <TextInput
         style={styles.input}
         value={patternSource}
@@ -284,12 +414,12 @@ export default function EditProjectScreen({ route, navigation }: Props) {
       />
 
       {/* Technique Notes */}
-      <Text style={styles.label}>Technique Notes (optional)</Text>
+      <Text style={styles.label}>Modifications / Notes (optional)</Text>
       <TextInput
         style={[styles.input, styles.textArea]}
         value={techniqueNotes}
         onChangeText={setTechniqueNotes}
-        placeholder="What techniques did you use? Any tips?"
+        placeholder="What modifications did you make? Any tips?"
         placeholderTextColor={Colors.textSecondary}
         multiline
         numberOfLines={4}
@@ -320,6 +450,7 @@ export default function EditProjectScreen({ route, navigation }: Props) {
         <Text style={styles.cancelText}>Cancel</Text>
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -340,8 +471,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   heading: {
-    fontSize: 24,
-    fontWeight: '500',
+    fontSize: 28,
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 8,
   },
@@ -352,10 +483,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 16,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
   input: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surfaceElevated,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 12,
@@ -370,7 +501,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   pickerButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surfaceElevated,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 12,
@@ -397,7 +528,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '60%',
@@ -420,7 +551,7 @@ const styles = StyleSheet.create({
   modalDone: {
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.primary,
+    color: Colors.text,
   },
   craftTypeRow: {
     paddingHorizontal: 20,
@@ -429,7 +560,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   craftTypeRowSelected: {
-    backgroundColor: '#F3EEFA',
+    backgroundColor: Colors.primaryUltraLight,
   },
   craftTypeName: {
     fontSize: 16,
@@ -457,9 +588,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveText: {
-    color: Colors.text,
+    color: Colors.white,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   cancelButton: {
     alignItems: 'center',
@@ -472,7 +603,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   shareRow: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 12,
@@ -483,7 +614,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   shareLockedRow: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 12,
@@ -497,9 +628,39 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.text,
   },
+  shareHint: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
   lockedText: {
     fontSize: 14,
     color: Colors.primary,
     fontWeight: '500',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusOption: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  statusOptionActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  statusOptionText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  statusOptionTextActive: {
+    color: Colors.white,
   },
 });

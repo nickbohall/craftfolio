@@ -10,11 +10,16 @@ import {
   Modal,
   FlatList,
   Platform,
+  Switch,
+  KeyboardAvoidingView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors } from '../../constants/colors';
 import { supabase, uploadProjectPhoto } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { usePremium } from '../../hooks/usePremium';
+import { getMaterialDisplayName } from '../../lib/materialUtils';
+import { getMaterialBadgeColors } from '../../lib/materialColors';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
@@ -22,6 +27,7 @@ type RootStackParamList = {
   AddPhotos: undefined;
   AddDetails: { photos: string[] };
   AddMaterial: { projectId: string };
+  Upgrade: undefined;
 };
 
 type CraftType = { id: string; name: string };
@@ -32,15 +38,28 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AddDetails'>;
 export default function AddDetailsScreen({ route, navigation }: Props) {
   const { photos } = route.params;
   const { user } = useAuth();
+  const { isPremium } = usePremium();
+
+  const STATUS_OPTIONS = [
+    { value: 'not_started', label: 'Not Started' },
+    { value: 'in_progress', label: 'In Progress' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'abandoned', label: 'Abandoned' },
+  ] as const;
 
   const [title, setTitle] = useState('');
+  const [status, setStatus] = useState('in_progress');
   const [craftTypes, setCraftTypes] = useState<CraftType[]>([]);
   const [craftTypesLoading, setCraftTypesLoading] = useState(true);
   const [selectedCraftType, setSelectedCraftType] = useState<CraftType | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
-  const [madeFor, setMadeFor] = useState('');
+  const [dateStarted, setDateStarted] = useState<Date | null>(null);
+  const [showDateStartedPicker, setShowDateStartedPicker] = useState(false);
   const [dateCompleted, setDateCompleted] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [hoursLogged, setHoursLogged] = useState('');
+  const [madeFor, setMadeFor] = useState('');
+  const [isShareable, setIsShareable] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -113,9 +132,13 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
       .insert({
         user_id: user.id,
         title: title.trim(),
+        status,
         craft_type_id: selectedCraftType?.id ?? null,
-        made_for: madeFor.trim() || null,
+        date_started: dateStarted ? dateStarted.toISOString().split('T')[0] : null,
         date_completed: dateCompleted ? dateCompleted.toISOString().split('T')[0] : null,
+        hours_logged: hoursLogged.trim() ? parseFloat(hoursLogged.trim()) : null,
+        made_for: madeFor.trim() || null,
+        is_shareable: isShareable,
       })
       .select('id')
       .single();
@@ -126,32 +149,34 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
       return;
     }
 
-    let publicUrls: string[];
-    try {
-      publicUrls = await Promise.all(
-        photos.map((uri) => uploadProjectPhoto(uri, user.id))
-      );
-    } catch (uploadErr: any) {
-      setError(uploadErr?.message ?? 'Failed to upload photos');
-      setSaving(false);
-      return;
-    }
+    if (photos.length > 0) {
+      let publicUrls: string[];
+      try {
+        publicUrls = await Promise.all(
+          photos.map((uri) => uploadProjectPhoto(uri, user.id))
+        );
+      } catch (uploadErr: any) {
+        setError(uploadErr?.message ?? 'Failed to upload photos');
+        setSaving(false);
+        return;
+      }
 
-    const photoRows = publicUrls.map((url, index) => ({
-      project_id: project.id,
-      storage_url: url,
-      is_cover: index === 0,
-      sort_order: index,
-    }));
+      const photoRows = publicUrls.map((url, index) => ({
+        project_id: project.id,
+        storage_url: url,
+        is_cover: index === 0,
+        sort_order: index,
+      }));
 
-    const { error: photosError } = await supabase
-      .from('project_photos')
-      .insert(photoRows);
+      const { error: photosError } = await supabase
+        .from('project_photos')
+        .insert(photoRows);
 
-    if (photosError) {
-      setError(photosError.message);
-      setSaving(false);
-      return;
+      if (photosError) {
+        setError(photosError.message);
+        setSaving(false);
+        return;
+      }
     }
 
     console.log(`Project saved: ${project.id}`);
@@ -168,15 +193,16 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
   }
 
   function materialDisplayName(m: SavedMaterial): string {
-    if (m.brand && m.name) return `${m.brand} — ${m.name}`;
-    if (m.brand) return m.brand;
-    if (m.name) return m.name;
-    return m.material_type ?? 'Material';
+    return getMaterialDisplayName(m);
   }
 
   // After project is saved, show materials section
   if (savedProjectId) {
     return (
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
       <ScrollView
         style={styles.container}
         contentContainerStyle={styles.content}
@@ -189,8 +215,8 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
           <View style={styles.materialsList}>
             {materials.map((m) => (
               <View key={m.id} style={styles.materialRow}>
-                <View style={styles.materialTypeBadge}>
-                  <Text style={styles.materialTypeBadgeText}>
+                <View style={[styles.materialTypeBadge, { backgroundColor: getMaterialBadgeColors(m.material_type).bg }]}>
+                  <Text style={[styles.materialTypeBadgeText, { color: getMaterialBadgeColors(m.material_type).text }]}>
                     {m.material_type ?? '?'}
                   </Text>
                 </View>
@@ -214,10 +240,15 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
           <Text style={styles.doneText}>Done</Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
   return (
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
@@ -234,6 +265,30 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
         placeholder="What did you make?"
         placeholderTextColor={Colors.textSecondary}
       />
+
+      {/* Status */}
+      <Text style={styles.label}>Status</Text>
+      <View style={styles.statusRow}>
+        {STATUS_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[
+              styles.statusOption,
+              status === opt.value && styles.statusOptionActive,
+            ]}
+            onPress={() => setStatus(opt.value)}
+          >
+            <Text
+              style={[
+                styles.statusOptionText,
+                status === opt.value && styles.statusOptionTextActive,
+              ]}
+            >
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
       {/* Craft Type */}
       <Text style={styles.label}>Craft Type</Text>
@@ -295,15 +350,42 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
         </View>
       </Modal>
 
-      {/* Made For */}
-      <Text style={styles.label}>Made For (optional)</Text>
-      <TextInput
-        style={styles.input}
-        value={madeFor}
-        onChangeText={setMadeFor}
-        placeholder="Who is this for?"
-        placeholderTextColor={Colors.textSecondary}
-      />
+      {/* Date Started */}
+      <Text style={styles.label}>Date Started (optional)</Text>
+      <TouchableOpacity
+        style={styles.pickerButton}
+        onPress={() => setShowDateStartedPicker(true)}
+      >
+        <Text
+          style={[
+            styles.pickerButtonText,
+            !dateStarted && styles.placeholderText,
+          ]}
+        >
+          {dateStarted ? formatDate(dateStarted) : 'Select a date'}
+        </Text>
+      </TouchableOpacity>
+
+      {showDateStartedPicker && (
+        <DateTimePicker
+          value={dateStarted ?? new Date()}
+          mode="date"
+          maximumDate={new Date()}
+          onChange={(event, selectedDate) => {
+            if (Platform.OS === 'android') {
+              setShowDateStartedPicker(false);
+            }
+            if (event.type === 'set' && selectedDate) {
+              setDateStarted(selectedDate);
+            }
+          }}
+        />
+      )}
+      {showDateStartedPicker && Platform.OS === 'ios' && (
+        <TouchableOpacity onPress={() => setShowDateStartedPicker(false)}>
+          <Text style={styles.modalDone}>Done</Text>
+        </TouchableOpacity>
+      )}
 
       {/* Date Completed */}
       <Text style={styles.label}>Date Completed (optional)</Text>
@@ -342,6 +424,57 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
         </TouchableOpacity>
       )}
 
+      {/* Hours Logged */}
+      <Text style={styles.label}>Hours Logged (optional)</Text>
+      <TextInput
+        style={styles.input}
+        value={hoursLogged}
+        onChangeText={setHoursLogged}
+        placeholder="e.g. 4.5"
+        placeholderTextColor={Colors.textSecondary}
+        keyboardType="numeric"
+      />
+
+      {/* Made For */}
+      <Text style={styles.label}>Made For (optional)</Text>
+      <TextInput
+        style={styles.input}
+        value={madeFor}
+        onChangeText={setMadeFor}
+        placeholder="Who is this for?"
+        placeholderTextColor={Colors.textSecondary}
+      />
+
+      {/* Visibility Toggle */}
+      <Text style={styles.label}>Visibility</Text>
+      {isPremium ? (
+        <View style={styles.shareRow}>
+          <View>
+            <Text style={styles.shareLabel}>{isShareable ? 'Public' : 'Private'}</Text>
+            <Text style={styles.shareHint}>
+              {isShareable ? 'Visible on your portfolio' : 'Only you can see this'}
+            </Text>
+          </View>
+          <Switch
+            value={isShareable}
+            onValueChange={setIsShareable}
+            trackColor={{ false: Colors.border, true: Colors.primary }}
+            thumbColor={Colors.white}
+          />
+        </View>
+      ) : (
+        <TouchableOpacity
+          style={styles.shareLockedRow}
+          onPress={() => navigation.navigate('Upgrade')}
+        >
+          <View>
+            <Text style={styles.shareLabel}>Private</Text>
+            <Text style={styles.shareHint}>Upgrade to make projects public</Text>
+          </View>
+          <Text style={styles.lockedText}>Upgrade</Text>
+        </TouchableOpacity>
+      )}
+
       {/* Error */}
       {error && <Text style={styles.error}>{error}</Text>}
 
@@ -358,6 +491,7 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
         )}
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -372,8 +506,8 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '500',
+    fontSize: 28,
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 8,
   },
@@ -389,10 +523,10 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 16,
     textTransform: 'uppercase',
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
   input: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surfaceElevated,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 12,
@@ -402,7 +536,7 @@ const styles = StyleSheet.create({
     color: Colors.text,
   },
   pickerButton: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surfaceElevated,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 12,
@@ -429,7 +563,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '60%',
@@ -452,7 +586,7 @@ const styles = StyleSheet.create({
   modalDone: {
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.primary,
+    color: Colors.text,
   },
   craftTypeRow: {
     paddingHorizontal: 20,
@@ -461,7 +595,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   craftTypeRowSelected: {
-    backgroundColor: '#F3EEFA',
+    backgroundColor: Colors.primaryUltraLight,
   },
   craftTypeName: {
     fontSize: 16,
@@ -489,8 +623,44 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveText: {
-    color: Colors.text,
+    color: Colors.white,
     fontSize: 16,
+    fontWeight: '600',
+  },
+  shareRow: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  shareLockedRow: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  shareLabel: {
+    fontSize: 16,
+    color: Colors.text,
+  },
+  shareHint: {
+    fontSize: 13,
+    color: Colors.textSecondary,
+    marginTop: 2,
+  },
+  lockedText: {
+    fontSize: 14,
+    color: Colors.primary,
     fontWeight: '500',
   },
   // Materials section (post-save)
@@ -500,7 +670,7 @@ const styles = StyleSheet.create({
   materialRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 12,
@@ -508,7 +678,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   materialTypeBadge: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.surfaceElevated,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
@@ -517,7 +687,7 @@ const styles = StyleSheet.create({
   materialTypeBadgeText: {
     fontSize: 12,
     fontWeight: '500',
-    color: Colors.text,
+    color: Colors.textSecondary,
   },
   materialName: {
     fontSize: 15,
@@ -526,7 +696,7 @@ const styles = StyleSheet.create({
   },
   addMaterialButton: {
     borderWidth: 2,
-    borderColor: Colors.primary,
+    borderColor: Colors.text,
     borderStyle: 'dashed',
     borderRadius: 12,
     paddingVertical: 16,
@@ -534,7 +704,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   addMaterialText: {
-    color: Colors.primary,
+    color: Colors.text,
     fontSize: 16,
     fontWeight: '500',
   },
@@ -546,8 +716,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   doneText: {
-    color: Colors.text,
+    color: Colors.white,
     fontSize: 16,
+    fontWeight: '600',
+  },
+  statusRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  statusOption: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  statusOptionActive: {
+    backgroundColor: Colors.primary,
+    borderColor: Colors.primary,
+  },
+  statusOptionText: {
+    fontSize: 13,
     fontWeight: '500',
+    color: Colors.text,
+  },
+  statusOptionTextActive: {
+    color: Colors.white,
   },
 });

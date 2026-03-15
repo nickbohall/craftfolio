@@ -39,9 +39,13 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={styles.headerBand}>
+        <Text style={styles.headerTitle}>My Profile</Text>
+      </View>
+
+      <View style={styles.profileSection}>
         <Image
-          source={require('../../../assets/images/mascot-neutral.png')}
+          source={require('../../../assets/images/mascot-icon.png')}
           style={styles.mascot}
           resizeMode="contain"
         />
@@ -89,11 +93,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingHorizontal: 20,
-    paddingTop: 60,
   },
-  header: {
+  headerBand: {
+    backgroundColor: Colors.primaryLight,
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: '700',
+    color: '#4A3D6B',
+  },
+  profileSection: {
     alignItems: 'center',
+    paddingTop: 20,
+    paddingHorizontal: 20,
     marginBottom: 32,
   },
   mascot: {
@@ -103,7 +118,7 @@ const styles = StyleSheet.create({
   },
   displayName: {
     fontSize: 20,
-    fontWeight: '500',
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 4,
   },
@@ -113,9 +128,10 @@ const styles = StyleSheet.create({
   },
   cardGroup: {
     gap: 1,
+    paddingHorizontal: 20,
   },
   row: {
-    backgroundColor: Colors.cardBackground,
+    backgroundColor: Colors.surface,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 12,

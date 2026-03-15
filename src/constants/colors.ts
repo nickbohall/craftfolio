@@ -1,21 +1,29 @@
 export const Colors = {
-  // Brand
-  lavender: '#C3B1E1',
-  cream: '#FAF8F5',
+  // Backgrounds
+  background: '#FAF8F5',      // cream — app background
+  surface: '#FFFFFF',          // white — cards and surfaces
+  surfaceElevated: '#F5F2EE', // slightly darker cream — input backgrounds
 
-  // Neutrals
-  white: '#FFFFFF',
-  black: '#2D2D2D',
-  gray: '#7A7A7A',
-  lightGray: '#E8E4E0',
+  // Brand
+  primary: '#7C6B9E',          // dark purple — buttons, links, active states
+  primaryLight: '#C3B1E1',     // light lavender — badges, fills, accents
+  primaryUltraLight: '#EDE8F5', // very light lavender — selected states, subtle fills
+
+  // Text
+  text: '#2D2D2D',             // near black — primary text
+  textSecondary: '#6B6B6B',    // medium gray — secondary text
+  textTertiary: '#9E9E9E',     // light gray — hints, placeholders
+
+  // Borders
+  border: '#E2DDD8',           // warm gray — card borders
+  borderStrong: '#C8C2BB',     // stronger border — inputs on focus
 
   // Semantic
-  primary: '#C3B1E1',
-  background: '#FAF8F5',
-  cardBackground: '#FFFFFF',
-  text: '#2D2D2D',
-  textSecondary: '#7A7A7A',
-  border: '#E8E4E0',
-  error: '#FF3B30',
-  success: '#34C759',
+  success: '#5A9E7C',          // muted green — completed status
+  warning: '#C4795A',          // muted terracotta — in progress accent
+  error: '#C4574A',            // muted red — delete, errors
+
+  // Aliases for backwards compatibility
+  white: '#FFFFFF',
+  gray: '#9E9E9E',
 } as const;

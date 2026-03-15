@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
+import * as WebBrowser from 'expo-web-browser';
+import * as AuthSession from 'expo-auth-session';
 import { File as ExpoFile } from 'expo-file-system';
 import type { Database } from '../types/database';
+
+WebBrowser.maybeCompleteAuthSession();
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
@@ -56,6 +60,52 @@ export async function signInWithEmail(email: string, password: string) {
 
   if (error) throw error;
   return data;
+}
+
+export async function signInWithGoogle(): Promise<void> {
+  const redirectUrl = AuthSession.makeRedirectUri({
+    scheme: 'craftfolio',
+    path: 'auth/callback',
+  });
+
+  console.log('Redirect URL:', redirectUrl);
+
+  const { data, error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: redirectUrl,
+      skipBrowserRedirect: true,
+    },
+  });
+
+  if (error) throw error;
+
+  console.log('OAuth URL:', data.url);
+
+  const result = await WebBrowser.openAuthSessionAsync(
+    data.url,
+    redirectUrl
+  );
+
+  console.log('Auth result:', JSON.stringify(result));
+
+  if (result.type === 'success') {
+    const { url } = result;
+    console.log('Success URL:', url);
+
+    // Supabase returns tokens in hash fragment, not query params
+    const hashParams = new URLSearchParams(url.split('#')[1]);
+    const accessToken = hashParams.get('access_token');
+    const refreshToken = hashParams.get('refresh_token');
+
+    if (accessToken && refreshToken) {
+      const { error: sessionError } = await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      });
+      if (sessionError) throw sessionError;
+    }
+  }
 }
 
 export async function signOut() {

@@ -5,20 +5,23 @@ import {
   Image,
   TouchableOpacity,
   FlatList,
-  ScrollView,
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
   Dimensions,
   Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 
 const mascotHappy = require('../../../assets/images/mascot-happy.png');
+const mascotIcon = require('../../../assets/images/mascot-icon.png');
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Colors } from '../../constants/colors';
+import { Typography } from '../../constants/typography';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { getCraftTypeColor } from '../../lib/craftColors';
 
 type RootStackParamList = {
   Tabs: undefined;
@@ -29,6 +32,7 @@ type RootStackParamList = {
 type Project = {
   id: string;
   title: string;
+  status: string;
   created_at: string;
   date_completed: string | null;
   made_for: string | null;
@@ -36,11 +40,30 @@ type Project = {
   project_photos: { storage_url: string; is_cover: boolean; sort_order: number }[];
 };
 
-type SortOption = 'newest' | 'oldest';
+type StatusFilter = 'all' | 'not_started' | 'in_progress' | 'completed' | 'abandoned';
+
+type ActiveModal = 'status' | 'craft' | 'madeFor' | null;
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const CARD_GAP = 12;
 const CARD_WIDTH = (SCREEN_WIDTH - 20 * 2 - CARD_GAP) / 2;
+
+const STATUS_LABELS: Record<StatusFilter, string> = {
+  all: 'All',
+  in_progress: 'In Progress',
+  completed: 'Completed',
+  not_started: 'Not Started',
+  abandoned: 'Abandoned',
+};
+
+function getStatusBadgeStyle(s: string): { bg: string; text: string } {
+  switch (s) {
+    case 'in_progress': return { bg: '#FEF3E2', text: '#C4795A' };
+    case 'not_started': return { bg: Colors.surfaceElevated, text: Colors.textTertiary };
+    case 'abandoned': return { bg: Colors.surfaceElevated, text: Colors.textSecondary };
+    default: return { bg: 'transparent', text: 'transparent' };
+  }
+}
 
 export default function JournalScreen() {
   const { user } = useAuth();
@@ -49,19 +72,18 @@ export default function JournalScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Filter/sort state
-  const [sortBy, setSortBy] = useState<SortOption>('newest');
+  // Filter state
+  const [filterStatus, setFilterStatus] = useState<StatusFilter>('all');
   const [filterCraft, setFilterCraft] = useState<string | null>(null);
   const [filterMadeFor, setFilterMadeFor] = useState<string | null>(null);
-  const [craftPickerVisible, setCraftPickerVisible] = useState(false);
-  const [madeForPickerVisible, setMadeForPickerVisible] = useState(false);
+  const [activeModal, setActiveModal] = useState<ActiveModal>(null);
 
   const fetchProjects = useCallback(async () => {
     if (!user) return;
 
     const { data } = await supabase
       .from('projects')
-      .select('id, title, created_at, date_completed, made_for, craft_types(name), project_photos(storage_url, is_cover, sort_order)')
+      .select('id, title, status, created_at, date_completed, made_for, craft_types(name), project_photos(storage_url, is_cover, sort_order)')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
@@ -91,10 +113,13 @@ export default function JournalScreen() {
     return [...new Set(values)].sort();
   }, [projects]);
 
-  // Apply filters and sorting
+  // Apply filters and sorting (always newest first)
   const filteredProjects = useMemo(() => {
     let result = [...projects];
 
+    if (filterStatus !== 'all') {
+      result = result.filter((p) => p.status === filterStatus);
+    }
     if (filterCraft) {
       result = result.filter((p) => p.craft_types?.name === filterCraft);
     }
@@ -105,15 +130,11 @@ export default function JournalScreen() {
     result.sort((a, b) => {
       const dateA = a.date_completed ?? a.created_at;
       const dateB = b.date_completed ?? b.created_at;
-      return sortBy === 'newest'
-        ? dateB.localeCompare(dateA)
-        : dateA.localeCompare(dateB);
+      return dateB.localeCompare(dateA);
     });
 
     return result;
-  }, [projects, filterCraft, filterMadeFor, sortBy]);
-
-  const hasActiveFilters = !!filterCraft || !!filterMadeFor;
+  }, [projects, filterStatus, filterCraft, filterMadeFor]);
 
   function getCoverUrl(photos: Project['project_photos']): string | null {
     if (!photos || photos.length === 0) return null;
@@ -124,12 +145,6 @@ export default function JournalScreen() {
   function handleRefresh() {
     setRefreshing(true);
     fetchProjects();
-  }
-
-  function clearFilters() {
-    setFilterCraft(null);
-    setFilterMadeFor(null);
-    setSortBy('newest');
   }
 
   if (loading) {
@@ -143,75 +158,69 @@ export default function JournalScreen() {
   if (projects.length === 0) {
     return (
       <View style={styles.centered}>
-        <Image
-          source={mascotHappy}
-          style={styles.emptyMascot}
-          resizeMode="contain"
-        />
-        <Text style={styles.emptyTitle}>No projects yet</Text>
-        <TouchableOpacity
-          style={styles.emptyButton}
-          onPress={() => navigation.navigate('AddPhotos')}
-        >
-          <Text style={styles.emptyButtonText}>Start your first project</Text>
-        </TouchableOpacity>
-        <FAB onPress={() => navigation.navigate('AddPhotos')} />
+        <View style={styles.emptyCard}>
+          <Image
+            source={mascotHappy}
+            style={styles.emptyMascot}
+            resizeMode="contain"
+          />
+          <Text style={styles.emptyTitle}>No projects yet</Text>
+          <TouchableOpacity
+            style={styles.emptyButton}
+            onPress={() => navigation.navigate('AddPhotos')}
+          >
+            <Text style={styles.emptyButtonText}>Start your first project</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
 
+  const statusLabel = STATUS_LABELS[filterStatus];
+  const isStatusActive = filterStatus !== 'all';
+  const isCraftActive = !!filterCraft;
+  const isMadeForActive = !!filterMadeFor;
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My Journal</Text>
+      {/* Lavender header band */}
+      <View style={styles.headerBand}>
+        <Text style={styles.headerTitle}>My Journal</Text>
+        <Text style={styles.headerTagline}>Your handmade portfolio.</Text>
+      </View>
 
-      {/* Filter/Sort chips */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-        style={styles.chipScroll}
-      >
-        {/* Sort chip */}
+      {/* 3 filter buttons */}
+      <View style={styles.filterRow}>
         <TouchableOpacity
-          style={[styles.chip, styles.chipActive]}
-          onPress={() => setSortBy(sortBy === 'newest' ? 'oldest' : 'newest')}
+          style={[styles.filterButton, isStatusActive && styles.filterButtonActive]}
+          onPress={() => setActiveModal('status')}
         >
-          <Text style={styles.chipActiveText}>
-            {sortBy === 'newest' ? 'Newest first' : 'Oldest first'}
+          <Text style={[styles.filterButtonText, isStatusActive && styles.filterButtonTextActive]} numberOfLines={1}>
+            {statusLabel}
           </Text>
+          <Ionicons name="chevron-down" size={14} color={isStatusActive ? Colors.primary : Colors.textSecondary} />
         </TouchableOpacity>
 
-        {/* Craft type filter */}
-        {craftTypes.length > 0 && (
-          <TouchableOpacity
-            style={[styles.chip, filterCraft && styles.chipActive]}
-            onPress={() => setCraftPickerVisible(true)}
-          >
-            <Text style={[styles.chipText, filterCraft && styles.chipActiveText]}>
-              {filterCraft ?? 'Craft type'}
-            </Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity
+          style={[styles.filterButton, isCraftActive && styles.filterButtonActive]}
+          onPress={() => setActiveModal('craft')}
+        >
+          <Text style={[styles.filterButtonText, isCraftActive && styles.filterButtonTextActive]} numberOfLines={1}>
+            {filterCraft ?? 'Craft Type'}
+          </Text>
+          <Ionicons name="chevron-down" size={14} color={isCraftActive ? Colors.primary : Colors.textSecondary} />
+        </TouchableOpacity>
 
-        {/* Made for filter */}
-        {madeForValues.length > 0 && (
-          <TouchableOpacity
-            style={[styles.chip, filterMadeFor && styles.chipActive]}
-            onPress={() => setMadeForPickerVisible(true)}
-          >
-            <Text style={[styles.chipText, filterMadeFor && styles.chipActiveText]}>
-              {filterMadeFor ? `For ${filterMadeFor}` : 'Made for'}
-            </Text>
-          </TouchableOpacity>
-        )}
-
-        {/* Clear filters */}
-        {hasActiveFilters && (
-          <TouchableOpacity style={styles.chipClear} onPress={clearFilters}>
-            <Text style={styles.chipClearText}>Clear</Text>
-          </TouchableOpacity>
-        )}
-      </ScrollView>
+        <TouchableOpacity
+          style={[styles.filterButton, isMadeForActive && styles.filterButtonActive]}
+          onPress={() => setActiveModal('madeFor')}
+        >
+          <Text style={[styles.filterButtonText, isMadeForActive && styles.filterButtonTextActive]} numberOfLines={1}>
+            {filterMadeFor ?? 'Made For'}
+          </Text>
+          <Ionicons name="chevron-down" size={14} color={isMadeForActive ? Colors.primary : Colors.textSecondary} />
+        </TouchableOpacity>
+      </View>
 
       <FlatList
         data={filteredProjects}
@@ -234,39 +243,78 @@ export default function JournalScreen() {
         }
         renderItem={({ item }) => {
           const coverUrl = getCoverUrl(item.project_photos);
+          const showBadge = item.status !== 'completed';
+          const badgeStyle = getStatusBadgeStyle(item.status);
           return (
             <TouchableOpacity
               style={styles.card}
               activeOpacity={0.7}
               onPress={() => navigation.navigate('ProjectDetail', { projectId: item.id })}
             >
-              <PhotoThumb uri={coverUrl} />
+              <View style={styles.cardImageWrap}>
+                <PhotoThumb uri={coverUrl} />
+                {showBadge && (
+                  <View style={[styles.statusOverlay, { backgroundColor: badgeStyle.bg }]}>
+                    <Text style={[styles.statusOverlayText, { color: badgeStyle.text }]}>
+                      {STATUS_LABELS[item.status as StatusFilter] ?? item.status}
+                    </Text>
+                  </View>
+                )}
+              </View>
               <Text style={styles.cardTitle} numberOfLines={1}>
                 {item.title}
               </Text>
               {item.craft_types?.name && (
-                <Text style={styles.cardCraft} numberOfLines={1}>
-                  {item.craft_types.name}
-                </Text>
+                <View style={styles.cardCraftRow}>
+                  <View style={[styles.craftDot, { backgroundColor: getCraftTypeColor(item.craft_types.name) }]} />
+                  <Text style={styles.cardCraft} numberOfLines={1}>
+                    {item.craft_types.name}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
           );
         }}
       />
 
+      {/* Status picker modal */}
+      <Modal visible={activeModal === 'status'} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Status</Text>
+              <TouchableOpacity onPress={() => setActiveModal(null)}>
+                <Text style={styles.modalDone}>Done</Text>
+              </TouchableOpacity>
+            </View>
+            {(Object.entries(STATUS_LABELS) as [StatusFilter, string][]).map(([value, label]) => (
+              <TouchableOpacity
+                key={value}
+                style={[styles.modalRow, filterStatus === value && styles.modalRowSelected]}
+                onPress={() => { setFilterStatus(value); setActiveModal(null); }}
+              >
+                <Text style={[styles.modalRowText, filterStatus === value && styles.modalRowTextSelected]}>
+                  {label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
+
       {/* Craft type picker modal */}
-      <Modal visible={craftPickerVisible} animationType="slide" transparent>
+      <Modal visible={activeModal === 'craft'} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Craft Type</Text>
-              <TouchableOpacity onPress={() => setCraftPickerVisible(false)}>
+              <TouchableOpacity onPress={() => setActiveModal(null)}>
                 <Text style={styles.modalDone}>Done</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity
               style={[styles.modalRow, !filterCraft && styles.modalRowSelected]}
-              onPress={() => { setFilterCraft(null); setCraftPickerVisible(false); }}
+              onPress={() => { setFilterCraft(null); setActiveModal(null); }}
             >
               <Text style={[styles.modalRowText, !filterCraft && styles.modalRowTextSelected]}>
                 All craft types
@@ -278,7 +326,7 @@ export default function JournalScreen() {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[styles.modalRow, filterCraft === item && styles.modalRowSelected]}
-                  onPress={() => { setFilterCraft(item); setCraftPickerVisible(false); }}
+                  onPress={() => { setFilterCraft(item); setActiveModal(null); }}
                 >
                   <Text style={[styles.modalRowText, filterCraft === item && styles.modalRowTextSelected]}>
                     {item}
@@ -291,18 +339,18 @@ export default function JournalScreen() {
       </Modal>
 
       {/* Made for picker modal */}
-      <Modal visible={madeForPickerVisible} animationType="slide" transparent>
+      <Modal visible={activeModal === 'madeFor'} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Made For</Text>
-              <TouchableOpacity onPress={() => setMadeForPickerVisible(false)}>
+              <TouchableOpacity onPress={() => setActiveModal(null)}>
                 <Text style={styles.modalDone}>Done</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity
               style={[styles.modalRow, !filterMadeFor && styles.modalRowSelected]}
-              onPress={() => { setFilterMadeFor(null); setMadeForPickerVisible(false); }}
+              onPress={() => { setFilterMadeFor(null); setActiveModal(null); }}
             >
               <Text style={[styles.modalRowText, !filterMadeFor && styles.modalRowTextSelected]}>
                 Everyone
@@ -314,7 +362,7 @@ export default function JournalScreen() {
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[styles.modalRow, filterMadeFor === item && styles.modalRowSelected]}
-                  onPress={() => { setFilterMadeFor(item); setMadeForPickerVisible(false); }}
+                  onPress={() => { setFilterMadeFor(item); setActiveModal(null); }}
                 >
                   <Text style={[styles.modalRowText, filterMadeFor === item && styles.modalRowTextSelected]}>
                     {item}
@@ -333,7 +381,11 @@ export default function JournalScreen() {
 
 function PhotoThumb({ uri }: { uri: string | null }) {
   if (!uri) {
-    return <View style={[styles.cardImage, styles.cardImagePlaceholder]} />;
+    return (
+      <View style={[styles.cardImage, styles.cardImagePlaceholder]}>
+        <Image source={mascotIcon} style={styles.placeholderMascot} resizeMode="contain" />
+      </View>
+    );
   }
 
   return <Image source={{ uri }} style={styles.cardImage} />;
@@ -352,19 +404,69 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  header: {
-    fontSize: 24,
+  // Header band
+  headerBand: {
+    backgroundColor: Colors.primaryLight,
+    paddingTop: 60,
+    paddingBottom: 16,
+    paddingHorizontal: 20,
+  },
+  headerTitle: {
+    ...Typography.screenTitle,
+    color: '#4A3D6B',
+  },
+  headerTagline: {
+    fontSize: 14,
+    fontStyle: 'italic',
+    color: '#6B5B8A',
+    marginTop: 2,
+  },
+  // Filter row
+  filterRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    gap: 8,
+  },
+  filterButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 36,
+  },
+  filterButtonActive: {
+    backgroundColor: Colors.primaryUltraLight,
+    borderColor: Colors.primary,
+  },
+  filterButtonText: {
+    fontSize: 13,
     fontWeight: '500',
     color: Colors.text,
-    paddingHorizontal: 20,
-    paddingTop: 60,
-    paddingBottom: 8,
+    flex: 1,
   },
+  filterButtonTextActive: {
+    color: Colors.primary,
+  },
+  // Empty / loading
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: Colors.background,
+  },
+  emptyCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 20,
+    paddingVertical: 40,
+    paddingHorizontal: 32,
+    alignItems: 'center',
+    marginHorizontal: 32,
   },
   emptyMascot: {
     width: 140,
@@ -385,50 +487,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 28,
   },
   emptyButtonText: {
-    color: Colors.text,
+    color: Colors.white,
     fontSize: 16,
     fontWeight: '500',
-  },
-  // Filter chips
-  chipScroll: {
-    flexGrow: 0,
-    marginBottom: 8,
-  },
-  chipRow: {
-    paddingHorizontal: 20,
-    gap: 8,
-  },
-  chip: {
-    backgroundColor: Colors.cardBackground,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  chipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  chipText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.text,
-  },
-  chipActiveText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.text,
-  },
-  chipClear: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    justifyContent: 'center',
-  },
-  chipClearText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: Colors.textSecondary,
   },
   // Grid
   grid: {
@@ -441,33 +502,63 @@ const styles = StyleSheet.create({
   },
   card: {
     width: CARD_WIDTH,
-    backgroundColor: Colors.cardBackground,
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
     overflow: 'hidden',
   },
+  cardImageWrap: {
+    position: 'relative',
+  },
   cardImage: {
     width: '100%',
     height: CARD_WIDTH,
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.surfaceElevated,
   },
   cardImagePlaceholder: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  placeholderMascot: {
+    width: 48,
+    height: 48,
+    opacity: 0.6,
+  },
+  // Status badge overlaid on photo
+  statusOverlay: {
+    position: 'absolute',
+    bottom: 8,
+    left: 8,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  statusOverlayText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
   cardTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: Colors.text,
+    ...Typography.cardTitle,
     marginTop: 8,
     marginHorizontal: 10,
   },
-  cardCraft: {
-    fontSize: 12,
-    color: Colors.textSecondary,
-    marginTop: 2,
+  cardCraftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 3,
     marginHorizontal: 10,
     marginBottom: 10,
+  },
+  craftDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 5,
+  },
+  cardCraft: {
+    ...Typography.cardSubtitle,
   },
   noResults: {
     paddingVertical: 40,
@@ -484,7 +575,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surface,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: '60%',
@@ -501,13 +592,13 @@ const styles = StyleSheet.create({
   },
   modalTitle: {
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: '600',
     color: Colors.text,
   },
   modalDone: {
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.primary,
+    color: Colors.text,
   },
   modalRow: {
     paddingHorizontal: 20,
@@ -516,7 +607,7 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.border,
   },
   modalRowSelected: {
-    backgroundColor: '#F3EEFA',
+    backgroundColor: Colors.primaryUltraLight,
   },
   modalRowText: {
     fontSize: 16,
@@ -539,7 +630,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   fabText: {
-    color: Colors.text,
+    color: Colors.white,
     fontSize: 28,
     lineHeight: 30,
     fontWeight: '500',

@@ -7,7 +7,7 @@ A mobile app for crafters to log finished projects, remember what materials they
 **Tagline:** "Your handmade portfolio."
 **App name:** Craftfolio
 **Domain:** getcraftfolio.com
-**Status:** Pre-development — spec phase
+**Status:** In development — v1 feature complete, polishing phase
 
 ---
 
@@ -215,23 +215,104 @@ Build this. Nothing else.
 
 ---
 
-## V2 — Stash Feature (Planned, Not Built)
+## V2 — Stash Feature (In Development)
 
-Stash = inventory of materials the user owns, with quantity tracking. Not in v1. Build and ship first.
+### Core Concept
+The stash is an inventory of materials the user owns. Any material can optionally
+be "in stash" with a quantity tracked. The Materials tab becomes the primary stash
+view. Favoriting still works within the stash.
 
-**Why it's worth doing eventually:** Craft-agnostic stash tracking doesn't exist in a clean mobile app. Ravelry only does yarn. This would be a real differentiator once the core journal is solid.
+A material with quantity_in_stash = NULL exists as a reference only (used in
+projects, can be favorited) but is not tracked as inventory. A material with
+quantity_in_stash set (even 0) is a stash item.
 
-**Schema is pre-positioned.** The `materials` table already has `quantity_in_stash (numeric, nullable)`. NULL means not tracking. Do not expose this field in v1 UI.
+### Schema Changes Required
+Migration 00004_stash.sql:
+- quantity_in_stash already exists (numeric, nullable) — just expose in UI
+- ADD COLUMN stash_unit text
+  values: 'skeins', 'cards', 'yards', 'pieces', null for needles/hooks
+- ADD COLUMN stash_status text DEFAULT 'in_stash'
+  values: 'in_stash', 'used_up', 'reserved'
 
-**When implementing v2 stash:**
-- Add `stash_unit` column to materials (skeins, spools, yards, grams, sheets, pieces)
-- Add `stash_status` column: `in_stash`, `used_up`, `reserved`
-- `quantity_used` in project_materials will need to become numeric (same unit) to enable auto-decrement
-- Auto-decrement on project save: if material linked to project has `quantity_in_stash` set and `quantity_used` is numeric and units match → subtract. Otherwise no-op, no error.
-- Add photo per stash entry (reuse project_photos pattern)
-- No location tracking, no for-sale/trade status — keep it simple
+### Units by Material Type
+- yarn → skeins (decimal ok, e.g. 2.5)
+- thread/floss → skeins OR cards (user picks per item)
+- fabric → yards (decimal ok, e.g. 2.5)
+- needle/hook → no unit, no quantity, just exists in stash, NEVER decrements
+- resin/other → pieces (whole numbers)
 
-**Do not implement any of this in v1. Do not expose quantity_in_stash in the UI.**
+### Auto-Decrement Rules
+When a material is linked to a project via project_materials:
+1. If material has quantity_in_stash = NULL → skip, no action
+2. If material is needle/hook → skip, never decrement
+3. If quantity_used is numeric and unit matches stash_unit → subtract
+4. If result would go below 0 → warn user "You only have X left, continue?"
+   then floor at 0 if confirmed
+5. If quantity_used is free text or units don't match → skip, no error
+6. When quantity hits 0 → prompt "Mark as Used Up?"
+
+### quantity_used Behavior
+- Stash materials: numeric field + unit selector in project_materials
+- Non-stash materials: free text (existing behavior unchanged)
+
+### UI — Materials Tab
+Two sub-tabs:
+- Stash: all materials where quantity_in_stash is non-null
+  - Grouped by material_type
+  - Shows quantity + unit (e.g. "2.5 skeins", "3 cards", "in stash" for needles)
+  - Stash status badge: In Stash (green), Used Up (gray), Reserved (lavender)
+  - Heart icon for favoriting within stash
+  - "Show Used Up" toggle — hidden by default
+  - Tap card to edit
+- Favorites: all materials where is_favorited = true (existing behavior)
+
+### Stash Card Display
+- Material type badge (existing style)
+- Display name from getMaterialDisplayName()
+- Quantity + unit OR "In Stash" for needles/hooks
+- Stash status badge
+- Heart icon
+
+### Adding Material to Stash
+In AddMaterialScreen, after material_type is selected:
+- Show "Add to Stash?" toggle (default off)
+- If toggled on:
+  - yarn/thread/fabric/resin: show quantity field + unit selector
+  - needle/hook: no quantity field, just adds to stash
+- User can also add to stash later by editing the material
+
+### Adding from Stash to a Project
+In AddMaterialScreen when reached from a project context:
+- Show "Add from Stash" button at top (alongside existing "Scan Label")
+- Opens searchable/filterable list of stash materials
+- Filter: only show stash_status = 'in_stash' (not used_up, not reserved)
+- Selecting pre-fills all material fields
+- quantity_used becomes numeric + unit selector for stash materials
+- On save: trigger auto-decrement check
+
+### Bulk Add (Same Brand, Different Colorways)
+After saving a material that has brand/name set:
+- Show prompt: "Add another colorway of [brand — name]?"
+- Options: "Yes, same yarn" / "Done"
+- If "Yes": reopen form with everything pre-filled EXCEPT:
+  - color_name (cleared)
+  - color_code (cleared)
+  - dye_lot (cleared)
+- Repeat until user taps "Done"
+- Works for any material type, not just yarn
+
+### Stash Status Management
+- User can manually change status from stash card (tap → edit)
+- Used Up: visually muted in stash list, hidden by default
+- Reserved: shown normally, lavender badge
+- Auto-decrement to 0 triggers "Mark as Used Up?" prompt
+
+### Build Order
+1. Schema migration (00004_stash.sql)
+2. MaterialsScreen — stash tab + favorites tab
+3. AddMaterialScreen — stash toggle + bulk add prompt
+4. AddMaterialScreen — add from stash flow
+5. Auto-decrement logic in project_materials save
 
 ---
 
@@ -315,12 +396,66 @@ git add . && git commit -m "feat: add project creation flow"
 - [x] Spec written
 - [x] App name decided — Craftfolio
 - [x] Domain purchased — getcraftfolio.com (Cloudflare)
-- [ ] Mascot generated — red panda with knitting needle hairpin
-- [ ] Primary brand color decided — sage green vs warm lavender
-- [ ] Apple Developer account ($99/year) — need girlfriend's iPhone to enroll. Not blocking yet.
-- [ ] Supabase project created (cloud)
-- [ ] RevenueCat account created (free to start)
-- [ ] Expo / EAS account created (free)
+- [x] Mascot generated — red panda with knitting needle hairpin
+- [x] Primary brand color decided — warm lavender #C3B1E1
+- [ ] Apple Developer account ($99/year) — not needed yet, Android first
+- [x] Supabase project created (cloud)
+- [x] RevenueCat account created (free to start)
+- [x] Expo / EAS account created (free)
+
+---
+
+## What's Been Built (Current State)
+
+- Email auth (sign up, sign in, sign out, session persistence)
+- Project creation flow (photos, details, materials)
+- Manual material entry with field groups by material_type
+- AI material label scanning via Edge Function (claude-haiku)
+- Journal grid view with pull-to-refresh and FAB
+- Project detail screen (read-only + edit)
+- Photo storage via Supabase Storage (project-photos bucket)
+- RevenueCat one-time purchase ($4.99) with usePremium hook
+- Shareable links — web views at getcraftfolio.com/p/[id] and /u/[slug]
+- Web app at getcraftfolio.com (Next.js, deployed to Vercel)
+- Mobile styling pass — cream/lavender brand, mascot integrated
+- Mascot assets at assets/images/mascot-neutral.png, mascot-happy.png, mascot-icon.png
+- Delete project
+- Dev mode for premium feature testing
+- Privacy policy at getcraftfolio.com/privacy
+- Internal test build submitted to Google Play Console
+
+---
+
+## Schema Notes (Drift from Original Spec)
+
+- uuid_generate_v4() replaced with gen_random_uuid() — Supabase cloud doesn't have uuid-ossp in search path
+- Android package name: com.getcraftfolio.app (not com.sleepycornbread.craftfolio)
+
+---
+
+## Known Issues / Backlog
+
+### Bugs
+- Needle/hook materials display as "Unnamed Material" when no brand/name is set.
+  Fix: derive display name from material_type + key spec (e.g. "Wood Needle — 4.0mm")
+
+### Planned Features (v1 polish)
+- Project status field: not started, in progress, completed, abandoned
+- Date started field on projects
+- Hours logged field on projects (simple editable numeric field, not a timer)
+- Filter projects by status on Journal screen
+- Photo editing on existing projects (add, remove, reorder)
+- Google auth
+- Apple auth (blocking for iOS App Store)
+- Favorited materials tab (Materials tab currently unbuilt)
+- Onboarding flow for new users
+
+### In Development — Stash Feature (v2)
+- [ ] Schema migration (00004_stash.sql)
+- [ ] MaterialsScreen — stash tab + favorites tab
+- [ ] AddMaterialScreen — stash toggle + bulk add prompt
+- [ ] AddMaterialScreen — add from stash flow
+- [ ] Auto-decrement logic in project_materials save
 
 ---
 
@@ -374,4 +509,4 @@ git add . && git commit -m "feat: add project creation flow"
 
 ---
 
-*Last updated: March 2026 — pre-development, spec phase*
+*Last updated: March 2026 — v1 feature complete, polishing phase*

@@ -64,7 +64,7 @@ export default function AddPhotosScreen({ navigation }: Props) {
     <View style={styles.container}>
       <Text style={styles.title}>Add Photos</Text>
       <Text style={styles.subtitle}>
-        First photo will be your cover.{'\n'}Long-press a photo, then tap another to swap positions.
+        Add at least one photo, or skip for now.
       </Text>
 
       <ScrollView
@@ -113,11 +113,10 @@ export default function AddPhotosScreen({ navigation }: Props) {
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.nextButton, photos.length === 0 && styles.nextButtonDisabled]}
-          disabled={photos.length === 0}
+          style={styles.nextButton}
           onPress={() => navigation.navigate('AddDetails', { photos })}
         >
-          <Text style={[styles.nextText, photos.length === 0 && styles.nextTextDisabled]}>
+          <Text style={styles.nextText}>
             Next
           </Text>
         </TouchableOpacity>
@@ -134,8 +133,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '500',
+    fontSize: 28,
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 8,
   },
@@ -178,7 +177,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   coverBadgeText: {
-    color: Colors.text,
+    color: Colors.white,
     fontSize: 11,
     fontWeight: '500',
   },
@@ -242,12 +241,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   nextButtonDisabled: {
-    backgroundColor: Colors.lightGray,
+    backgroundColor: Colors.surfaceElevated,
   },
   nextText: {
-    color: Colors.text,
+    color: Colors.white,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   nextTextDisabled: {
     color: Colors.textSecondary,

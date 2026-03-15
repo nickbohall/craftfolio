@@ -81,8 +81,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '500',
+    fontSize: 28,
+    fontWeight: '700',
     color: Colors.text,
     marginBottom: 8,
   },
@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
   },
   features: {
     alignSelf: 'stretch',
-    backgroundColor: Colors.cardBackground,
+    backgroundColor: Colors.surface,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
@@ -123,9 +123,9 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   purchaseButtonText: {
-    color: Colors.text,
+    color: Colors.white,
     fontSize: 18,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   restoreButton: {
     marginTop: 16,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   backLinkText: {
-    color: Colors.textSecondary,
+    color: Colors.primary,
     fontSize: 14,
   },
   backButton: {
@@ -153,8 +153,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   backButtonText: {
-    color: Colors.text,
+    color: Colors.white,
     fontSize: 16,
-    fontWeight: '500',
+    fontWeight: '600',
   },
 });

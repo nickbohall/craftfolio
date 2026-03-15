@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,7 +10,9 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
 import { useAuth } from './src/hooks/useAuth';
+import { supabase } from './src/lib/supabase';
 import { PremiumProvider } from './src/hooks/usePremium';
 import { Colors } from './src/constants/colors';
 import SignInScreen from './src/screens/auth/SignInScreen';
@@ -20,7 +22,9 @@ import AddDetailsScreen from './src/screens/projects/AddDetailsScreen';
 import AddMaterialScreen from './src/screens/projects/AddMaterialScreen';
 import ProjectDetailScreen from './src/screens/projects/ProjectDetailScreen';
 import EditProjectScreen from './src/screens/projects/EditProjectScreen';
+import EditPhotosScreen from './src/screens/projects/EditPhotosScreen';
 import JournalScreen from './src/screens/journal/JournalScreen';
+import MaterialsScreen from './src/screens/materials/MaterialsScreen';
 import ProfileScreen from './src/screens/profile/ProfileScreen';
 import UpgradeScreen from './src/screens/profile/UpgradeScreen';
 
@@ -33,6 +37,7 @@ type RootStackParamList = {
   AddMaterial: { projectId: string; materialId?: string };
   ProjectDetail: { projectId: string };
   EditProject: { projectId: string };
+  EditPhotos: { projectId: string };
   Upgrade: undefined;
 };
 
@@ -45,10 +50,11 @@ function TabNavigator() {
       screenOptions={{
         headerShown: false,
         tabBarActiveTintColor: Colors.primary,
-        tabBarInactiveTintColor: Colors.gray,
+        tabBarInactiveTintColor: Colors.textTertiary,
         tabBarStyle: {
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.surface,
           borderTopColor: Colors.border,
+          borderTopWidth: 1,
         },
       }}
     >
@@ -56,8 +62,23 @@ function TabNavigator() {
         name="Journal"
         component={JournalScreen}
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="book-outline" size={size} color={color} />
+          tabBarIcon: ({ focused, color, size }) => (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name={focused ? 'book' : 'book-outline'} size={size} color={color} />
+              {focused && <View style={{ width: 6, height: 3, borderRadius: 1.5, backgroundColor: Colors.primary, marginTop: 4 }} />}
+            </View>
+          ),
+        }}
+      />
+      <Tab.Screen
+        name="Materials"
+        component={MaterialsScreen}
+        options={{
+          tabBarIcon: ({ focused, color, size }) => (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name={focused ? 'heart' : 'heart-outline'} size={size} color={color} />
+              {focused && <View style={{ width: 6, height: 3, borderRadius: 1.5, backgroundColor: Colors.primary, marginTop: 4 }} />}
+            </View>
           ),
         }}
       />
@@ -65,8 +86,11 @@ function TabNavigator() {
         name="Profile"
         component={ProfileScreen}
         options={{
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-outline" size={size} color={color} />
+          tabBarIcon: ({ focused, color, size }) => (
+            <View style={{ alignItems: 'center' }}>
+              <Ionicons name={focused ? 'person' : 'person-outline'} size={size} color={color} />
+              {focused && <View style={{ width: 6, height: 3, borderRadius: 1.5, backgroundColor: Colors.primary, marginTop: 4 }} />}
+            </View>
           ),
         }}
       />
@@ -76,6 +100,24 @@ function TabNavigator() {
 
 export default function App() {
   const { session, loading } = useAuth();
+
+  useEffect(() => {
+    const handleDeepLink = async (event: { url: string }) => {
+      if (event.url.includes('auth/callback')) {
+        await supabase.auth.exchangeCodeForSession(event.url);
+      }
+    };
+
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    Linking.getInitialURL().then(url => {
+      if (url && url.includes('auth/callback')) {
+        supabase.auth.exchangeCodeForSession(url);
+      }
+    });
+
+    return () => subscription.remove();
+  }, []);
 
   if (loading) {
     return (
@@ -104,6 +146,7 @@ export default function App() {
               <Stack.Screen name="AddMaterial" component={AddMaterialScreen} />
               <Stack.Screen name="ProjectDetail" component={ProjectDetailScreen} />
               <Stack.Screen name="EditProject" component={EditProjectScreen} />
+              <Stack.Screen name="EditPhotos" component={EditPhotosScreen} />
               <Stack.Screen name="Upgrade" component={UpgradeScreen} />
             </>
           ) : (

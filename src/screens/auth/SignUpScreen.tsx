@@ -10,7 +10,7 @@ import {
   Platform,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { signUpWithEmail } from '../../lib/supabase';
+import { signUpWithEmail, signInWithGoogle } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
 
 type Props = {
@@ -23,6 +23,19 @@ export default function SignUpScreen({ navigation }: Props) {
   const [displayName, setDisplayName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+
+  async function handleGoogleSignIn() {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      await signInWithGoogle();
+    } catch (e: any) {
+      setError(e.message || 'Failed to sign in with Google.');
+    } finally {
+      setGoogleLoading(false);
+    }
+  }
 
   async function handleSignUp() {
     if (!email || !password || !displayName) {
@@ -60,7 +73,7 @@ export default function SignUpScreen({ navigation }: Props) {
         <TextInput
           style={styles.input}
           placeholder="Display Name"
-          placeholderTextColor={Colors.gray}
+          placeholderTextColor={Colors.textTertiary}
           value={displayName}
           onChangeText={setDisplayName}
           textContentType="name"
@@ -69,7 +82,7 @@ export default function SignUpScreen({ navigation }: Props) {
         <TextInput
           style={styles.input}
           placeholder="Email"
-          placeholderTextColor={Colors.gray}
+          placeholderTextColor={Colors.textTertiary}
           value={email}
           onChangeText={setEmail}
           autoCapitalize="none"
@@ -80,7 +93,7 @@ export default function SignUpScreen({ navigation }: Props) {
         <TextInput
           style={styles.input}
           placeholder="Password"
-          placeholderTextColor={Colors.gray}
+          placeholderTextColor={Colors.textTertiary}
           value={password}
           onChangeText={setPassword}
           secureTextEntry
@@ -94,6 +107,23 @@ export default function SignUpScreen({ navigation }: Props) {
         >
           <Text style={styles.buttonText}>
             {loading ? 'Creating Account...' : 'Create Account'}
+          </Text>
+        </TouchableOpacity>
+
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        <TouchableOpacity
+          style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
+          onPress={handleGoogleSignIn}
+          disabled={googleLoading}
+        >
+          <Text style={styles.googleG}>G</Text>
+          <Text style={styles.googleButtonText}>
+            {googleLoading ? 'Signing In...' : 'Continue with Google'}
           </Text>
         </TouchableOpacity>
 
@@ -143,7 +173,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   input: {
-    backgroundColor: Colors.white,
+    backgroundColor: Colors.surfaceElevated,
     borderWidth: 1,
     borderColor: Colors.border,
     borderRadius: 12,
@@ -168,6 +198,45 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   buttonText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'stretch',
+    marginBottom: 16,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  dividerText: {
+    marginHorizontal: 12,
+    color: Colors.textSecondary,
+    fontSize: 14,
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 24,
+    height: 52,
+    alignSelf: 'stretch',
+    marginBottom: 24,
+  },
+  googleG: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#4285F4',
+    marginRight: 10,
+  },
+  googleButtonText: {
     color: Colors.text,
     fontSize: 16,
     fontWeight: '500',
