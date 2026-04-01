@@ -14,6 +14,7 @@ import { Colors } from '../../constants/colors';
 import { supabase, uploadProjectPhoto } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 
 type RootStackParamList = {
   EditPhotos: { projectId: string };
@@ -41,6 +42,13 @@ export default function EditPhotosScreen({ route, navigation }: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const longPressIndex = useRef<number | null>(null);
+  const initialPhotoCount = useRef(0);
+
+  const hasNewPhotos = photos.some((p) => p.type === 'new');
+  const hasRemovals = removedIds.length > 0;
+  const hasReorder = !hasNewPhotos && !hasRemovals && photos.length === initialPhotoCount.current &&
+    photos.some((p, i) => p.type === 'existing' && p.data.sort_order !== i);
+  const allowNavigation = useUnsavedChanges(hasNewPhotos || hasRemovals || hasReorder);
 
   useEffect(() => {
     async function fetchPhotos() {
@@ -57,6 +65,7 @@ export default function EditPhotosScreen({ route, navigation }: Props) {
           return a.sort_order - b.sort_order;
         });
         setPhotos(sorted.map((p) => ({ type: 'existing', data: p })));
+        initialPhotoCount.current = sorted.length;
       }
       setLoading(false);
     }
@@ -119,6 +128,7 @@ export default function EditPhotosScreen({ route, navigation }: Props) {
 
   async function handleSave() {
     if (!user) return;
+    allowNavigation();
     setSaving(true);
 
     // 1. Delete removed photos from DB and storage

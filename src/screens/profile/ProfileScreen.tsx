@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, Image, TouchableOpacity, Share, StyleSheet } from 'react-native';
+import React, { useState, useCallback, useRef } from 'react';
+import { View, Text, Image, TouchableOpacity, Share, Alert, StyleSheet, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/colors';
@@ -12,6 +12,10 @@ export default function ProfileScreen() {
   const { isPremium, devToggle } = usePremium();
   const navigation = useNavigation<any>();
   const [portfolioSlug, setPortfolioSlug] = useState<string | null>(null);
+  const [devUnlocked, setDevUnlocked] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const tapCountRef = useRef(0);
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -26,6 +30,44 @@ export default function ProfileScreen() {
         });
     }, [user])
   );
+
+  function handleDeleteAccount() {
+    Alert.alert(
+      'Delete Account',
+      'This will permanently delete your account and all your projects, photos, and materials. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete My Account',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              const { data: { session } } = await supabase.auth.getSession();
+              if (!session) throw new Error('No session');
+
+              const response = await supabase.functions.invoke('delete-account', {
+                headers: { Authorization: `Bearer ${session.access_token}` },
+              });
+
+              if (response.error || !response.data?.success) {
+                throw new Error('Delete failed');
+              }
+
+              await signOut();
+            } catch {
+              Alert.alert(
+                'Error',
+                'Something went wrong. Email support@getcraftfolio.com to request deletion.'
+              );
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  }
 
   function handleSharePortfolio() {
     if (!isPremium) {
@@ -78,13 +120,44 @@ export default function ProfileScreen() {
           <Text style={styles.chevron}>›</Text>
         </TouchableOpacity>
 
-        {__DEV__ && (
+        {devUnlocked && (
           <TouchableOpacity style={styles.row} onPress={devToggle}>
             <Text style={styles.rowText}>Toggle Premium (Dev)</Text>
             <Text style={styles.devBadge}>{isPremium ? 'ON' : 'OFF'}</Text>
           </TouchableOpacity>
         )}
       </View>
+
+      <TouchableOpacity
+        style={styles.deleteRow}
+        onPress={handleDeleteAccount}
+        disabled={deleting}
+      >
+        {deleting ? (
+          <ActivityIndicator size="small" color="#D32F2F" />
+        ) : (
+          <Text style={styles.deleteText}>Delete Account</Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.versionContainer}
+        activeOpacity={1}
+        onPress={() => {
+          tapCountRef.current += 1;
+          if (tapTimerRef.current) clearTimeout(tapTimerRef.current);
+          if (tapCountRef.current >= 7) {
+            tapCountRef.current = 0;
+            setDevUnlocked((prev) => !prev);
+          } else {
+            tapTimerRef.current = setTimeout(() => {
+              tapCountRef.current = 0;
+            }, 2000);
+          }
+        }}
+      >
+        <Text style={styles.versionText}>Craftfolio v1.0.0</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -160,5 +233,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
     color: Colors.primary,
+  },
+  deleteRow: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    paddingVertical: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    backgroundColor: '#FFF5F5',
+    alignItems: 'center',
+  },
+  deleteText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#D32F2F',
+  },
+  versionContainer: {
+    alignItems: 'center',
+    paddingVertical: 20,
+    marginTop: 'auto',
+    marginBottom: 30,
+  },
+  versionText: {
+    fontSize: 12,
+    color: Colors.textTertiary,
   },
 });

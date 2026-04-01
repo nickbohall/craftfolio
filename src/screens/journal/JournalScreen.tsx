@@ -3,15 +3,16 @@ import {
   View,
   Text,
   Image,
+  TextInput,
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  ActivityIndicator,
   RefreshControl,
   Dimensions,
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 const mascotHappy = require('../../../assets/images/mascot-happy.png');
 const mascotIcon = require('../../../assets/images/mascot-icon.png');
@@ -22,6 +23,7 @@ import { Typography } from '../../constants/typography';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { getCraftTypeColor } from '../../lib/craftColors';
+import { JournalSkeleton } from '../../components/SkeletonCards';
 
 type RootStackParamList = {
   Tabs: undefined;
@@ -72,7 +74,9 @@ export default function JournalScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  // Filter state
+  // Search + filter + sort state
+  const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<StatusFilter>('all');
   const [filterCraft, setFilterCraft] = useState<string | null>(null);
   const [filterMadeFor, setFilterMadeFor] = useState<string | null>(null);
@@ -113,9 +117,18 @@ export default function JournalScreen() {
     return [...new Set(values)].sort();
   }, [projects]);
 
-  // Apply filters and sorting (always newest first)
+  // Apply search, filters, and sorting (always newest first)
   const filteredProjects = useMemo(() => {
     let result = [...projects];
+
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter((p) =>
+        p.title.toLowerCase().includes(q) ||
+        (p.craft_types?.name?.toLowerCase().includes(q)) ||
+        (p.made_for?.toLowerCase().includes(q))
+      );
+    }
 
     if (filterStatus !== 'all') {
       result = result.filter((p) => p.status === filterStatus);
@@ -130,11 +143,11 @@ export default function JournalScreen() {
     result.sort((a, b) => {
       const dateA = a.date_completed ?? a.created_at;
       const dateB = b.date_completed ?? b.created_at;
-      return dateB.localeCompare(dateA);
+      return sortNewestFirst ? dateB.localeCompare(dateA) : dateA.localeCompare(dateB);
     });
 
     return result;
-  }, [projects, filterStatus, filterCraft, filterMadeFor]);
+  }, [projects, searchQuery, sortNewestFirst, filterStatus, filterCraft, filterMadeFor]);
 
   function getCoverUrl(photos: Project['project_photos']): string | null {
     if (!photos || photos.length === 0) return null;
@@ -149,8 +162,14 @@ export default function JournalScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={styles.container}>
+        <View style={styles.headerBand}>
+          <View style={styles.headerRow}>
+            <Text style={styles.headerTitle}>My Journal</Text>
+          </View>
+          <Text style={styles.headerTagline}>Your handmade portfolio.</Text>
+        </View>
+        <JournalSkeleton />
       </View>
     );
   }
@@ -185,8 +204,45 @@ export default function JournalScreen() {
     <View style={styles.container}>
       {/* Lavender header band */}
       <View style={styles.headerBand}>
-        <Text style={styles.headerTitle}>My Journal</Text>
+        <View style={styles.headerRow}>
+          <Text style={styles.headerTitle}>My Journal</Text>
+          <TouchableOpacity
+            style={styles.sortButton}
+            onPress={() => setSortNewestFirst((prev) => !prev)}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={sortNewestFirst ? 'arrow-down' : 'arrow-up'}
+              size={16}
+              color="#4A3D6B"
+            />
+            <Text style={styles.sortButtonText}>
+              {sortNewestFirst ? 'Newest' : 'Oldest'}
+            </Text>
+          </TouchableOpacity>
+        </View>
         <Text style={styles.headerTagline}>Your handmade portfolio.</Text>
+      </View>
+
+      {/* Search bar */}
+      <View style={styles.searchRow}>
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={16} color={Colors.textTertiary} />
+          <TextInput
+            style={styles.searchInput}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            placeholder="Search projects..."
+            placeholderTextColor={Colors.textTertiary}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={16} color={Colors.textTertiary} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* 3 filter buttons */}
@@ -238,7 +294,7 @@ export default function JournalScreen() {
         }
         ListEmptyComponent={
           <View style={styles.noResults}>
-            <Text style={styles.noResultsText}>No projects match these filters</Text>
+            <Text style={styles.noResultsText}>No projects match{searchQuery.trim() ? ` "${searchQuery.trim()}"` : ' these filters'}</Text>
           </View>
         }
         renderItem={({ item }) => {
@@ -258,6 +314,12 @@ export default function JournalScreen() {
                     <Text style={[styles.statusOverlayText, { color: badgeStyle.text }]}>
                       {STATUS_LABELS[item.status as StatusFilter] ?? item.status}
                     </Text>
+                  </View>
+                )}
+                {item.project_photos.length > 1 && (
+                  <View style={styles.photoBadge}>
+                    <Ionicons name="images-outline" size={10} color="#FFF" />
+                    <Text style={styles.photoBadgeText}>{item.project_photos.length}</Text>
                   </View>
                 )}
               </View>
@@ -393,7 +455,11 @@ function PhotoThumb({ uri }: { uri: string | null }) {
 
 function FAB({ onPress }: { onPress: () => void }) {
   return (
-    <TouchableOpacity style={styles.fab} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={styles.fab}
+      onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onPress(); }}
+      activeOpacity={0.8}
+    >
       <Text style={styles.fabText}>+</Text>
     </TouchableOpacity>
   );
@@ -411,8 +477,27 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     paddingHorizontal: 20,
   },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
   headerTitle: {
     ...Typography.screenTitle,
+    color: '#4A3D6B',
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.45)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  sortButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
     color: '#4A3D6B',
   },
   headerTagline: {
@@ -420,6 +505,28 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     color: '#6B5B8A',
     marginTop: 2,
+  },
+  // Search
+  searchRow: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    height: 40,
+    gap: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: Colors.text,
+    paddingVertical: 0,
   },
   // Filter row
   filterRow: {
@@ -538,6 +645,23 @@ const styles = StyleSheet.create({
   statusOverlayText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  photoBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    gap: 3,
+  },
+  photoBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#FFF',
   },
   cardTitle: {
     ...Typography.cardTitle,

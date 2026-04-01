@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 
 type RootStackParamList = {
@@ -23,6 +24,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AddPhotos'>;
 export default function AddPhotosScreen({ navigation }: Props) {
   const [photos, setPhotos] = useState<string[]>([]);
   const longPressIndex = useRef<number | null>(null);
+  useUnsavedChanges(photos.length > 0);
 
   async function pickPhotos() {
     const result = await ImagePicker.launchImageLibraryAsync({

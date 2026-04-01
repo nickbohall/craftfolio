@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
+import * as Haptics from 'expo-haptics';
 import {
   View,
   Text,
@@ -7,7 +8,6 @@ import {
   FlatList,
   SectionList,
   StyleSheet,
-  ActivityIndicator,
   RefreshControl,
   Switch,
   Modal,
@@ -20,6 +20,7 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { getMaterialDisplayName } from '../../lib/materialUtils';
 import { getMaterialBadgeColors } from '../../lib/materialColors';
+import { MaterialsSkeleton } from '../../components/SkeletonCards';
 
 const mascotNeutral = require('../../../assets/images/mascot-neutral.png');
 
@@ -167,6 +168,7 @@ export default function MaterialsScreen() {
   }
 
   async function toggleStashFavorite(materialId: string, current: boolean) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newValue = !current;
     await supabase
       .from('materials')
@@ -186,6 +188,7 @@ export default function MaterialsScreen() {
   }
 
   function toggleSelection(id: string) {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -259,8 +262,12 @@ export default function MaterialsScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+      <View style={styles.container}>
+        <View style={styles.headerBand}>
+          <Text style={styles.headerTitle}>My Materials</Text>
+          <Text style={styles.headerTagline}>Your saved materials.</Text>
+        </View>
+        <MaterialsSkeleton />
       </View>
     );
   }
@@ -494,7 +501,7 @@ function StashTab({
 
       {/* FAB */}
       {!isSelecting && (
-        <TouchableOpacity style={styles.fab} onPress={onAddToStash} activeOpacity={0.8}>
+        <TouchableOpacity style={styles.fab} onPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onAddToStash(); }} activeOpacity={0.8}>
           <Text style={styles.fabText}>+</Text>
         </TouchableOpacity>
       )}

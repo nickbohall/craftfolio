@@ -12,6 +12,7 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signInWithEmail, signInWithGoogle } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
+import { validateSignIn } from '../../lib/validation';
 
 type Props = {
   navigation: NativeStackNavigationProp<any>;
@@ -37,8 +38,9 @@ export default function SignInScreen({ navigation }: Props) {
   }
 
   async function handleSignIn() {
-    if (!email || !password) {
-      setError('Please fill in all fields.');
+    const validationErrors = validateSignIn(email, password);
+    if (validationErrors) {
+      setError(validationErrors.form ?? 'Invalid input.');
       return;
     }
 
@@ -89,6 +91,10 @@ export default function SignInScreen({ navigation }: Props) {
           secureTextEntry
           textContentType="password"
         />
+
+        <TouchableOpacity onPress={() => navigation.navigate('ForgotPassword')}>
+          <Text style={styles.forgotText}>Forgot password?</Text>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}
@@ -239,5 +245,13 @@ const styles = StyleSheet.create({
   linkBold: {
     color: Colors.primary,
     fontWeight: '500',
+  },
+  forgotText: {
+    color: Colors.primary,
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'right',
+    alignSelf: 'flex-end',
+    marginBottom: 4,
   },
 });

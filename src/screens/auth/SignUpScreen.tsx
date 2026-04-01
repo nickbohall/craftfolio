@@ -12,6 +12,7 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { signUpWithEmail, signInWithGoogle } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
+import { validateSignUp } from '../../lib/validation';
 
 type Props = {
   navigation: NativeStackNavigationProp<any>;
@@ -38,8 +39,9 @@ export default function SignUpScreen({ navigation }: Props) {
   }
 
   async function handleSignUp() {
-    if (!email || !password || !displayName) {
-      setError('Please fill in all fields.');
+    const validationErrors = validateSignUp(email, password, displayName);
+    if (validationErrors) {
+      setError(validationErrors.form ?? validationErrors.email ?? validationErrors.password ?? 'Invalid input.');
       return;
     }
 

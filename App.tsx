@@ -11,7 +11,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
-import { useAuth } from './src/hooks/useAuth';
+import { useAuth, AuthProvider } from './src/hooks/useAuth';
 import { supabase } from './src/lib/supabase';
 import { PremiumProvider } from './src/hooks/usePremium';
 import { Colors } from './src/constants/colors';
@@ -27,11 +27,16 @@ import JournalScreen from './src/screens/journal/JournalScreen';
 import MaterialsScreen from './src/screens/materials/MaterialsScreen';
 import ProfileScreen from './src/screens/profile/ProfileScreen';
 import UpgradeScreen from './src/screens/profile/UpgradeScreen';
+import WelcomeScreen from './src/screens/onboarding/WelcomeScreen';
+import FeaturesScreen from './src/screens/onboarding/FeaturesScreen';
+import SetNameScreen from './src/screens/onboarding/SetNameScreen';
+import ForgotPasswordScreen from './src/screens/auth/ForgotPasswordScreen';
 
 type RootStackParamList = {
   Tabs: undefined;
   SignIn: undefined;
   SignUp: undefined;
+  ForgotPassword: undefined;
   AddPhotos: undefined;
   AddDetails: { photos: string[] };
   AddMaterial: { projectId: string; materialId?: string };
@@ -39,6 +44,9 @@ type RootStackParamList = {
   EditProject: { projectId: string };
   EditPhotos: { projectId: string };
   Upgrade: undefined;
+  OnboardingWelcome: undefined;
+  OnboardingFeatures: undefined;
+  OnboardingSetName: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -99,7 +107,15 @@ function TabNavigator() {
 }
 
 export default function App() {
-  const { session, loading } = useAuth();
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
+}
+
+function AppContent() {
+  const { session, loading, isNewUser } = useAuth();
 
   useEffect(() => {
     const handleDeepLink = async (event: { url: string }) => {
@@ -138,7 +154,19 @@ export default function App() {
     <PremiumProvider>
       <NavigationContainer>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
-          {session ? (
+          {!session ? (
+            <>
+              <Stack.Screen name="SignIn" component={SignInScreen} />
+              <Stack.Screen name="SignUp" component={SignUpScreen} />
+              <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+            </>
+          ) : isNewUser ? (
+            <>
+              <Stack.Screen name="OnboardingWelcome" component={WelcomeScreen} />
+              <Stack.Screen name="OnboardingFeatures" component={FeaturesScreen} />
+              <Stack.Screen name="OnboardingSetName" component={SetNameScreen} />
+            </>
+          ) : (
             <>
               <Stack.Screen name="Tabs" component={TabNavigator} />
               <Stack.Screen name="AddPhotos" component={AddPhotosScreen} />
@@ -148,11 +176,6 @@ export default function App() {
               <Stack.Screen name="EditProject" component={EditProjectScreen} />
               <Stack.Screen name="EditPhotos" component={EditPhotosScreen} />
               <Stack.Screen name="Upgrade" component={UpgradeScreen} />
-            </>
-          ) : (
-            <>
-              <Stack.Screen name="SignIn" component={SignInScreen} />
-              <Stack.Screen name="SignUp" component={SignUpScreen} />
             </>
           )}
         </Stack.Navigator>

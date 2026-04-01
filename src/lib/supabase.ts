@@ -25,11 +25,7 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-function generateSlug(displayName: string): string {
-  const base = displayName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-  const suffix = Math.floor(1000 + Math.random() * 9000);
-  return `${base}-${suffix}`;
-}
+import { generateSlug } from './slugUtils';
 
 export async function signUpWithEmail(email: string, password: string, displayName: string) {
   const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -68,8 +64,6 @@ export async function signInWithGoogle(): Promise<void> {
     path: 'auth/callback',
   });
 
-  console.log('Redirect URL:', redirectUrl);
-
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
@@ -80,18 +74,13 @@ export async function signInWithGoogle(): Promise<void> {
 
   if (error) throw error;
 
-  console.log('OAuth URL:', data.url);
-
   const result = await WebBrowser.openAuthSessionAsync(
     data.url,
     redirectUrl
   );
 
-  console.log('Auth result:', JSON.stringify(result));
-
   if (result.type === 'success') {
     const { url } = result;
-    console.log('Success URL:', url);
 
     // Supabase returns tokens in hash fragment, not query params
     const hashParams = new URLSearchParams(url.split('#')[1]);
@@ -106,6 +95,11 @@ export async function signInWithGoogle(): Promise<void> {
       if (sessionError) throw sessionError;
     }
   }
+}
+
+export async function resetPassword(email: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(email);
+  if (error) throw error;
 }
 
 export async function signOut() {

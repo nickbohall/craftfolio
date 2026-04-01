@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { Colors } from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
 import { usePremium } from '../../hooks/usePremium';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 
 type RootStackParamList = {
   EditProject: { projectId: string };
@@ -58,6 +59,23 @@ export default function EditProjectScreen({ route, navigation }: Props) {
   const [patternDesigner, setPatternDesigner] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const initialValues = useRef<Record<string, any> | null>(null);
+
+  const isDirty = !loading && initialValues.current != null && (
+    title !== initialValues.current.title ||
+    status !== initialValues.current.status ||
+    madeFor !== initialValues.current.madeFor ||
+    hoursLogged !== initialValues.current.hoursLogged ||
+    techniqueNotes !== initialValues.current.techniqueNotes ||
+    patternSource !== initialValues.current.patternSource ||
+    patternName !== initialValues.current.patternName ||
+    patternDesigner !== initialValues.current.patternDesigner ||
+    isShareable !== initialValues.current.isShareable ||
+    selectedCraftType?.id !== initialValues.current.craftTypeId ||
+    dateStarted?.toISOString() !== initialValues.current.dateStarted ||
+    dateCompleted?.toISOString() !== initialValues.current.dateCompleted
+  );
+  const allowNavigation = useUnsavedChanges(isDirty);
 
   useEffect(() => {
     async function load() {
@@ -97,6 +115,20 @@ export default function EditProjectScreen({ route, navigation }: Props) {
           const match = types.find((ct) => ct.id === p.craft_type_id);
           if (match) setSelectedCraftType(match);
         }
+        initialValues.current = {
+          title: p.title ?? '',
+          status: p.status ?? 'completed',
+          madeFor: p.made_for ?? '',
+          hoursLogged: p.hours_logged != null ? String(p.hours_logged) : '',
+          techniqueNotes: p.technique_notes ?? '',
+          patternSource: p.pattern_source ?? '',
+          patternName: p.pattern_name ?? '',
+          patternDesigner: p.pattern_designer ?? '',
+          isShareable: p.is_shareable ?? false,
+          craftTypeId: p.craft_type_id ? (types.find((ct) => ct.id === p.craft_type_id)?.id ?? null) : null,
+          dateStarted: p.date_started ? new Date(p.date_started + 'T00:00:00').toISOString() : undefined,
+          dateCompleted: p.date_completed ? new Date(p.date_completed + 'T00:00:00').toISOString() : undefined,
+        };
       }
 
       setLoading(false);
@@ -109,6 +141,7 @@ export default function EditProjectScreen({ route, navigation }: Props) {
       setError('Title is required');
       return;
     }
+    allowNavigation();
 
     setSaving(true);
     setError(null);

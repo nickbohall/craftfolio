@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as Haptics from 'expo-haptics';
 import {
   View,
   Text,
@@ -25,7 +26,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePremium } from '../../hooks/usePremium';
 import { getMaterialDisplayName } from '../../lib/materialUtils';
 import { getMaterialBadgeColors } from '../../lib/materialColors';
+import { getDefaultStashUnit, isNeedleType } from '../../lib/validation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 import type { MaterialType, YarnWeight, NeedleType, NeedleMaterial } from '../../types/database';
 
 type RootStackParamList = {
@@ -65,21 +68,6 @@ const NEEDLE_MATERIALS: { label: string; value: NeedleMaterial }[] = [
   { label: 'Wood', value: 'wood' },
   { label: 'Plastic', value: 'plastic' },
 ];
-
-function getDefaultStashUnit(type: MaterialType | null): string | null {
-  switch (type) {
-    case 'yarn': return 'skeins';
-    case 'thread/floss': return 'skeins';
-    case 'fabric': return 'yards';
-    case 'other': return 'pieces';
-    case 'needle': return null;
-    default: return null;
-  }
-}
-
-function isNeedleType(type: MaterialType | null): boolean {
-  return type === 'needle';
-}
 
 type PickerConfig = {
   title: string;
@@ -138,6 +126,9 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
   const [usageUnit, setUsageUnit] = useState<'skeins' | 'grams' | 'yards'>('skeins');
   const [usageUnitPickerVisible, setUsageUnitPickerVisible] = useState(false);
 
+  const isDirty = !isEditing && (!!materialType || brand.length > 0 || name.length > 0 || colorName.length > 0 || notes.length > 0);
+  const allowNavigation = useUnsavedChanges(isDirty);
+
   // Favorites picker
   const [favoritesVisible, setFavoritesVisible] = useState(false);
   const [favorites, setFavorites] = useState<any[]>([]);
@@ -158,6 +149,7 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
 
   async function handlePickFavorite(materialId: string) {
     setFavoritesVisible(false);
+    allowNavigation();
     setSaving(true);
     const { error: joinError } = await supabase
       .from('project_materials')
@@ -436,6 +428,7 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
   async function handleSave() {
     if (!materialType || !user) return;
 
+    allowNavigation();
     setSaving(true);
     setError(null);
 
@@ -696,6 +689,7 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
   }
 
   async function toggleFavorite() {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     const newValue = !isFavorited;
     setIsFavorited(newValue);
     if (isEditing && materialId) {

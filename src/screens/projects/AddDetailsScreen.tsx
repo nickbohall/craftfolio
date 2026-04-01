@@ -20,7 +20,9 @@ import { useAuth } from '../../hooks/useAuth';
 import { usePremium } from '../../hooks/usePremium';
 import { getMaterialDisplayName } from '../../lib/materialUtils';
 import { getMaterialBadgeColors } from '../../lib/materialColors';
+import { validateProjectDetails } from '../../lib/validation';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useUnsavedChanges } from '../../hooks/useUnsavedChanges';
 
 type RootStackParamList = {
   Tabs: undefined;
@@ -66,6 +68,9 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
   // Post-save state
   const [savedProjectId, setSavedProjectId] = useState<string | null>(null);
   const [materials, setMaterials] = useState<SavedMaterial[]>([]);
+
+  const isDirty = !savedProjectId && (title.trim().length > 0 || madeFor.trim().length > 0 || !!selectedCraftType || !!dateStarted || !!dateCompleted || hoursLogged.trim().length > 0);
+  useUnsavedChanges(isDirty);
 
   useEffect(() => {
     async function fetchCraftTypes() {
@@ -115,8 +120,9 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
   }, [savedProjectId, navigation, fetchMaterials]);
 
   async function handleSaveProject() {
-    if (!title.trim()) {
-      setError('Title is required');
+    const titleError = validateProjectDetails(title);
+    if (titleError) {
+      setError(titleError);
       return;
     }
     if (!user) {

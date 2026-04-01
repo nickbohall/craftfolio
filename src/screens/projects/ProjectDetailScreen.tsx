@@ -14,11 +14,13 @@ import {
   TextInput,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  RefreshControl,
 } from 'react-native';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/colors';
 import { supabase } from '../../lib/supabase';
 import { usePremium } from '../../hooks/usePremium';
@@ -92,44 +94,45 @@ export default function ProjectDetailScreen() {
   const [project, setProject] = useState<Project | null>(null);
   const [materials, setMaterials] = useState<ProjectMaterial[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+
+  const fetchData = useCallback(async () => {
+    const projectRes = await (supabase
+      .from('projects') as any)
+      .select(
+        'id, title, status, made_for, date_started, date_completed, hours_logged, technique_notes, pattern_source, pattern_name, pattern_designer, craft_types(name), project_photos(id, storage_url, is_cover, sort_order)'
+      )
+      .eq('id', projectId)
+      .single();
+
+    const materialsRes = await (supabase
+      .from('project_materials') as any)
+      .select('id, quantity_used, materials(*)')
+      .eq('project_id', projectId);
+
+    if (projectRes.data) {
+      const p = projectRes.data as unknown as Project;
+      p.project_photos.sort((a, b) => {
+        if (a.is_cover && !b.is_cover) return -1;
+        if (!a.is_cover && b.is_cover) return 1;
+        return a.sort_order - b.sort_order;
+      });
+      setProject(p);
+    }
+
+    if (materialsRes.data) {
+      setMaterials(materialsRes.data as unknown as ProjectMaterial[]);
+    }
+
+    setLoading(false);
+    setRefreshing(false);
+  }, [projectId]);
 
   useFocusEffect(
     useCallback(() => {
-      async function fetchData() {
-        const projectRes = await (supabase
-          .from('projects') as any)
-          .select(
-            'id, title, status, made_for, date_started, date_completed, hours_logged, technique_notes, pattern_source, pattern_name, pattern_designer, craft_types(name), project_photos(id, storage_url, is_cover, sort_order)'
-          )
-          .eq('id', projectId)
-          .single();
-
-        const materialsRes = await (supabase
-          .from('project_materials') as any)
-          .select('id, quantity_used, materials(*)')
-          .eq('project_id', projectId);
-
-        if (projectRes.data) {
-          const p = projectRes.data as unknown as Project;
-          // Sort photos: cover first, then by sort_order
-          p.project_photos.sort((a, b) => {
-            if (a.is_cover && !b.is_cover) return -1;
-            if (!a.is_cover && b.is_cover) return 1;
-            return a.sort_order - b.sort_order;
-          });
-          setProject(p);
-        }
-
-        if (materialsRes.data) {
-          setMaterials(materialsRes.data as unknown as ProjectMaterial[]);
-        }
-
-        setLoading(false);
-      }
-
       fetchData();
-    }, [projectId])
+    }, [fetchData])
   );
 
   function formatDate(dateStr: string): string {
@@ -370,7 +373,18 @@ export default function ProjectDetailScreen() {
         </View>
       </View>
 
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => { setRefreshing(true); fetchData(); }}
+            tintColor={Colors.primary}
+            colors={[Colors.primary]}
+          />
+        }
+      >
         {/* Photo carousel */}
         {photos.length > 0 ? (
           <>
@@ -488,7 +502,17 @@ export default function ProjectDetailScreen() {
         <View style={styles.materialsSection}>
           <Text style={styles.sectionHeader}>Materials</Text>
           {materials.length === 0 ? (
-            <Text style={styles.emptyMaterials}>No materials logged</Text>
+            <TouchableOpacity
+              style={styles.emptyMaterialsCard}
+              onPress={() => navigation.navigate('AddMaterial', { projectId })}
+            >
+              <Ionicons name="color-palette-outline" size={32} color={Colors.primary} style={{ marginBottom: 8 }} />
+              <Text style={styles.emptyMaterialsPrompt}>What materials did you use?</Text>
+              <Text style={styles.emptyMaterialsHint}>Tap to log yarn, needles, fabric, and more</Text>
+              <View style={styles.emptyMaterialsButton}>
+                <Text style={styles.emptyMaterialsButtonText}>+ Add Material</Text>
+              </View>
+            </TouchableOpacity>
           ) : (
             materials.map((pm) => {
               const mat = pm.materials;
@@ -499,7 +523,7 @@ export default function ProjectDetailScreen() {
                   style={styles.materialCard}
                   activeOpacity={0.7}
                   onPress={() => navigation.navigate('AddMaterial', { projectId, materialId: mat.id })}
-                  onLongPress={() => handleRemoveMaterial(pm.id)}
+                  onLongPress={() => { Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); handleRemoveMaterial(pm.id); }}
                 >
                   <View style={styles.materialCardRow}>
                     <View style={styles.materialCardLeft}>
@@ -530,12 +554,14 @@ export default function ProjectDetailScreen() {
             })
           )}
 
-          <TouchableOpacity
-            style={styles.addMaterialButton}
-            onPress={() => navigation.navigate('AddMaterial', { projectId })}
-          >
-            <Text style={styles.addMaterialText}>+ Add Material</Text>
-          </TouchableOpacity>
+          {materials.length > 0 && (
+            <TouchableOpacity
+              style={styles.addMaterialButton}
+              onPress={() => navigation.navigate('AddMaterial', { projectId })}
+            >
+              <Text style={styles.addMaterialText}>+ Add Material</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteProject}>
@@ -806,10 +832,35 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 1,
   },
-  emptyMaterials: {
-    fontSize: 15,
+  emptyMaterialsCard: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+  },
+  emptyMaterialsPrompt: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  emptyMaterialsHint: {
+    fontSize: 13,
     color: Colors.textSecondary,
-    fontStyle: 'italic',
+    marginBottom: 16,
+  },
+  emptyMaterialsButton: {
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+  },
+  emptyMaterialsButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#4A3D6B',
   },
   materialCard: {
     backgroundColor: Colors.white,
