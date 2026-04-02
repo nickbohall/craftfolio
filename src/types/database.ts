@@ -1,4 +1,4 @@
-export type MaterialType = 'yarn' | 'thread/floss' | 'fabric' | 'resin' | 'needle' | 'hook' | 'other';
+export type MaterialType = 'yarn' | 'thread/floss' | 'fabric' | 'resin' | 'needle' | 'hook' | 'polymer clay' | 'other';
 
 export type YarnWeight =
   | 'Lace (0)' | 'Fingering (1)' | 'Sport (2)' | 'DK (3)'

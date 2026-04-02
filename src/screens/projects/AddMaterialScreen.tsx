@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import * as Haptics from 'expo-haptics';
 import {
   View,
@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Switch,
   Alert,
+  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -46,6 +47,7 @@ const MATERIAL_TYPES: { label: string; value: MaterialType }[] = [
   { label: 'Thread / Floss', value: 'thread/floss' },
   { label: 'Needle / Hook', value: 'needle' },
   { label: 'Fabric', value: 'fabric' },
+  { label: 'Polymer Clay', value: 'polymer clay' },
   { label: 'Resin / Other', value: 'other' },
 ];
 
@@ -107,6 +109,8 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
   const [picker, setPicker] = useState<PickerConfig | null>(null);
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSaveCount, setBulkSaveCount] = useState(0);
+  const bulkToastOpacity = useRef(new Animated.Value(0)).current;
+  const bulkToastLastName = useRef('');
 
   // Stash mode: automatic based on context. No project = stash. Has project = project material.
   const isStashMode = !projectId && !isEditing;
@@ -378,7 +382,7 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
 
       // Pre-fill fields from scan results
       if (data.material_type) {
-        const validTypes: MaterialType[] = ['yarn', 'thread/floss', 'needle', 'fabric', 'other'];
+        const validTypes: MaterialType[] = ['yarn', 'thread/floss', 'needle', 'fabric', 'polymer clay', 'other'];
         if (validTypes.includes(data.material_type)) {
           setMaterialType(data.material_type as MaterialType);
         }
@@ -417,12 +421,26 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
   }
 
   function resetForBulkAdd() {
+    // Capture what was just saved for the toast
+    const savedName = [colorName, colorCode].filter(Boolean).join(' — ') || 'Material';
+    bulkToastLastName.current = savedName;
+
     setColorName('');
     setColorCode('');
     setDyeLot('');
     setCollection('');
     setError(null);
     setBulkSaveCount((c) => c + 1);
+
+    // Haptic + animated toast
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    bulkToastOpacity.setValue(1);
+    Animated.timing(bulkToastOpacity, {
+      toValue: 0,
+      duration: 600,
+      delay: 2000,
+      useNativeDriver: true,
+    }).start();
   }
 
   async function handleSave() {
@@ -641,6 +659,7 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
             {renderField('Collection', collection, setCollection, { placeholder: 'e.g. Coloris' })}
             {renderField('Color Name', colorName, setColorName)}
             {renderField('Color Code', colorCode, setColorCode, { placeholder: 'e.g. DMC #321' })}
+            {renderField('Dye Lot', dyeLot, setDyeLot)}
             {renderField('Fiber Content', fiberContent, setFiberContent)}
             {renderField('Notes', notes, setNotes)}
           </>
@@ -675,6 +694,7 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
             {renderField('Notes', notes, setNotes)}
           </>
         );
+      case 'polymer clay':
       case 'other':
         return (
           <>
@@ -710,9 +730,12 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
       contentContainerStyle={styles.content}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.titleRow}>
-        <Text style={styles.title}>{isEditing ? 'Edit Material' : 'Add Material'}</Text>
-        <TouchableOpacity onPress={toggleFavorite} hitSlop={12} style={styles.heartButton}>
+      <View style={styles.headerBar}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+          <Text style={styles.headerCancelText}>Cancel</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{isEditing ? 'Edit Material' : 'Add Material'}</Text>
+        <TouchableOpacity onPress={toggleFavorite} hitSlop={12} style={styles.headerButton}>
           <Ionicons
             name={isFavorited ? 'heart' : 'heart-outline'}
             size={24}
@@ -935,6 +958,16 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
         </View>
       )}
 
+      {/* Bulk save toast */}
+      {bulkSaveCount > 0 && bulkMode && (
+        <Animated.View style={[styles.bulkToast, { opacity: bulkToastOpacity }]}>
+          <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
+          <Text style={styles.bulkToastText}>
+            Saved "{bulkToastLastName.current}" ({bulkSaveCount} added)
+          </Text>
+        </Animated.View>
+      )}
+
       {/* Save */}
       {materialType && (
         <TouchableOpacity
@@ -949,14 +982,6 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
           )}
         </TouchableOpacity>
       )}
-
-      {/* Cancel */}
-      <TouchableOpacity
-        style={styles.cancelButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.cancelText}>Cancel</Text>
-      </TouchableOpacity>
 
       {/* Delete Material — only when editing */}
       {isEditing && (
@@ -1114,6 +1139,7 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
 function formatMaterialType(type: string): string {
   if (type === 'thread/floss') return 'Thread / Floss';
   if (type === 'needle') return 'Needle / Hook';
+  if (type === 'polymer clay') return 'Polymer Clay';
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
@@ -1220,23 +1246,35 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   content: {
-    paddingTop: 60,
     paddingHorizontal: 20,
     paddingBottom: 40,
   },
-  titleRow: {
+  headerBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 12,
+  },
+  headerButton: {
+    padding: 4,
+    minWidth: 60,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  headerCancelText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    fontWeight: '500',
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: Colors.text,
-  },
-  heartButton: {
-    padding: 4,
   },
   scanButton: {
     backgroundColor: Colors.primary,
@@ -1376,20 +1414,27 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
+  bulkToast: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginTop: 16,
+    marginBottom: 4,
+    gap: 8,
+  },
+  bulkToastText: {
+    fontSize: 14,
+    color: Colors.success,
+    fontWeight: '500',
+    flex: 1,
+  },
   saveText: {
     color: Colors.white,
     fontSize: 16,
     fontWeight: '600',
-  },
-  cancelButton: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    marginTop: 12,
-  },
-  cancelText: {
-    color: Colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '500',
   },
   deleteButton: {
     alignItems: 'center',

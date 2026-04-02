@@ -105,7 +105,7 @@ Seed with ~30 common crafts. Allow custom entry that saves back to this table.
 ### materials
 - id (uuid, PK)
 - user_id (FK → users)
-- material_type (text, nullable — "yarn", "thread/floss", "fabric", "resin", "needle", "hook", "other")
+- material_type (text, nullable — "yarn", "thread/floss", "fabric", "resin", "needle", "hook", "polymer clay", "other")
 - brand (text, nullable)
 - name (text, nullable — yarn line or colorway name e.g. "Cascade 220", "Brownie Points")
 - color_name (text, nullable)
@@ -122,7 +122,9 @@ Seed with ~30 common crafts. Allow custom entry that saves back to this table.
 - cable_length_inches (numeric, nullable — for circular needles only)
 - notes (text, nullable)
 - is_favorited (bool, default false)
-- quantity_in_stash (numeric, nullable — NULL = not tracking. Reserved for v2 stash feature. Do NOT expose in v1 UI.)
+- quantity_in_stash (numeric, nullable — NULL = not tracking. Exposed via stash feature.)
+- stash_unit (text, nullable — "skeins", "cards", "yards", "pieces")
+- stash_status (text, default "in_stash" — "in_stash", "used_up", "reserved")
 - created_at
 
 ### project_materials (join table)
@@ -164,9 +166,10 @@ Seed with ~30 common crafts. Allow custom entry that saves back to this table.
 
 Field groups by material_type:
 - **yarn:** brand, name/colorway, color_name, color_code, dye_lot, fiber_content, yarn_weight, yardage_per_skein, weight_per_skein_grams
-- **thread/floss:** brand, color_name, color_code (e.g. DMC #321), fiber_content, notes
+- **thread/floss:** brand, color_name, color_code (e.g. DMC #321), dye_lot, fiber_content, notes
 - **needle/hook:** needle_type, needle_size_mm, needle_size_us, needle_material, cable_length_inches (circulars only)
 - **fabric:** brand, color_name, fiber_content, notes
+- **polymer clay:** brand, color_name, notes
 - **resin / other:** brand, color_name, notes
 
 Never show all columns at once. Only render fields relevant to the selected material_type.
@@ -423,6 +426,12 @@ git add . && git commit -m "feat: add project creation flow"
 - Dev mode for premium feature testing
 - Privacy policy at getcraftfolio.com/privacy
 - Internal test build submitted to Google Play Console
+- Stash feature (v2) — stash/favorites tabs, add to stash from project detail, auto-decrement, bulk add
+- Add to stash from project detail screen (cube icon on material cards)
+- Camera photo capture (take photo + choose from library action sheet)
+- Consistent top header bars with Cancel/Back on all form screens
+- Bulk add material toast feedback with haptic confirmation
+- Polymer clay material type
 
 ---
 
@@ -440,22 +449,10 @@ git add . && git commit -m "feat: add project creation flow"
   Fix: derive display name from material_type + key spec (e.g. "Wood Needle — 4.0mm")
 
 ### Planned Features (v1 polish)
-- Project status field: not started, in progress, completed, abandoned
-- Date started field on projects
-- Hours logged field on projects (simple editable numeric field, not a timer)
 - Filter projects by status on Journal screen
-- Photo editing on existing projects (add, remove, reorder)
 - Google auth
 - Apple auth (blocking for iOS App Store)
-- Favorited materials tab (Materials tab currently unbuilt)
 - Onboarding flow for new users
-
-### In Development — Stash Feature (v2)
-- [ ] Schema migration (00004_stash.sql)
-- [ ] MaterialsScreen — stash tab + favorites tab
-- [ ] AddMaterialScreen — stash toggle + bulk add prompt
-- [ ] AddMaterialScreen — add from stash flow
-- [ ] Auto-decrement logic in project_materials save
 
 ---
 
@@ -509,4 +506,4 @@ git add . && git commit -m "feat: add project creation flow"
 
 ---
 
-*Last updated: March 2026 — v1 feature complete, polishing phase*
+*Last updated: April 2026 — v1 feature complete, polishing phase*

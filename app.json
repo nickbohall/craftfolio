@@ -50,7 +50,13 @@
     },
     "plugins": [
       "@react-native-community/datetimepicker",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Craftfolio needs camera access so you can take photos of your projects and material labels."
+        }
+      ]
     ],
     "extra": {
       "eas": {

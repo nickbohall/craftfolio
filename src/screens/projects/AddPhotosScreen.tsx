@@ -7,6 +7,9 @@ import {
   ScrollView,
   StyleSheet,
   Pressable,
+  ActionSheetIOS,
+  Platform,
+  Alert,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
@@ -24,18 +27,50 @@ type Props = NativeStackScreenProps<RootStackParamList, 'AddPhotos'>;
 export default function AddPhotosScreen({ navigation }: Props) {
   const [photos, setPhotos] = useState<string[]>([]);
   const longPressIndex = useRef<number | null>(null);
-  useUnsavedChanges(photos.length > 0);
+  const allowNavigation = useUnsavedChanges(photos.length > 0);
 
-  async function pickPhotos() {
+  async function takePhoto() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Camera Access', 'Please allow camera access in your device settings to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      setPhotos((prev) => [...prev, result.assets[0].uri]);
+    }
+  }
+
+  async function pickFromLibrary() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
       quality: 0.8,
     });
-
     if (!result.canceled) {
       const uris = result.assets.map((a) => a.uri);
       setPhotos((prev) => [...prev, ...uris]);
+    }
+  }
+
+  function showAddPhotoOptions() {
+    const options = ['Take Photo', 'Choose from Library', 'Cancel'];
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: 2 },
+        (index) => {
+          if (index === 0) takePhoto();
+          else if (index === 1) pickFromLibrary();
+        },
+      );
+    } else {
+      Alert.alert('Add Photo', undefined, [
+        { text: 'Take Photo', onPress: takePhoto },
+        { text: 'Choose from Library', onPress: pickFromLibrary },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     }
   }
 
@@ -64,7 +99,19 @@ export default function AddPhotosScreen({ navigation }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Add Photos</Text>
+      <View style={styles.headerBar}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+          <Text style={styles.headerCancelText}>Cancel</Text>
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Add Photos</Text>
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() => { allowNavigation(); navigation.navigate('AddDetails', { photos }); }}
+        >
+          <Text style={styles.headerNextText}>Next</Text>
+        </TouchableOpacity>
+      </View>
+
       <Text style={styles.subtitle}>
         Add at least one photo, or skip for now.
       </Text>
@@ -101,28 +148,11 @@ export default function AddPhotosScreen({ navigation }: Props) {
           </Pressable>
         ))}
 
-        <TouchableOpacity style={styles.addPhotoButton} onPress={pickPhotos}>
+        <TouchableOpacity style={styles.addPhotoButton} onPress={showAddPhotoOptions}>
           <Text style={styles.addPhotoIcon}>+</Text>
           <Text style={styles.addPhotoLabel}>Add</Text>
         </TouchableOpacity>
       </ScrollView>
-
-      <View style={styles.footer}>
-        <TouchableOpacity
-          style={styles.cancelButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.cancelText}>Cancel</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.nextButton}
-          onPress={() => navigation.navigate('AddDetails', { photos })}
-        >
-          <Text style={styles.nextText}>
-            Next
-          </Text>
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -131,20 +161,41 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
-    paddingTop: 60,
-    paddingHorizontal: 20,
+    paddingTop: 56,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
+  headerBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+  },
+  headerButton: {
+    padding: 4,
+    minWidth: 60,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '500',
     color: Colors.text,
-    marginBottom: 8,
+  },
+  headerCancelText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  headerNextText: {
+    fontSize: 16,
+    color: Colors.text,
+    fontWeight: '600',
+    textAlign: 'right',
   },
   subtitle: {
     fontSize: 14,
     color: Colors.textSecondary,
     marginBottom: 24,
     lineHeight: 20,
+    paddingHorizontal: 20,
   },
   photoRow: {
     flexGrow: 0,
@@ -153,6 +204,7 @@ const styles = StyleSheet.create({
   photoRowContent: {
     alignItems: 'center',
     gap: 12,
+    paddingHorizontal: 20,
   },
   photoWrapper: {
     width: 140,
@@ -219,38 +271,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
     marginTop: 4,
-  },
-  footer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 'auto',
-    paddingBottom: 40,
-  },
-  cancelButton: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-  },
-  cancelText: {
-    color: Colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  nextButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 24,
-    height: 52,
-    justifyContent: 'center',
-    paddingHorizontal: 32,
-  },
-  nextButtonDisabled: {
-    backgroundColor: Colors.surfaceElevated,
-  },
-  nextText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  nextTextDisabled: {
-    color: Colors.textSecondary,
   },
 });

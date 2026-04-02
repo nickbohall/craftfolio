@@ -8,6 +8,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   Pressable,
+  ActionSheetIOS,
+  Platform,
+  Alert,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../constants/colors';
@@ -99,19 +102,51 @@ export default function EditPhotosScreen({ route, navigation }: Props) {
     longPressIndex.current = null;
   }
 
-  async function pickPhotos() {
+  async function takePhoto() {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Camera Access', 'Please allow camera access in your device settings to take photos.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      quality: 0.8,
+    });
+    if (!result.canceled) {
+      setPhotos((prev) => [...prev, { type: 'new', localUri: result.assets[0].uri }]);
+    }
+  }
+
+  async function pickFromLibrary() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
       quality: 0.8,
     });
-
     if (!result.canceled) {
       const newItems: PhotoItem[] = result.assets.map((a) => ({
         type: 'new',
         localUri: a.uri,
       }));
       setPhotos((prev) => [...prev, ...newItems]);
+    }
+  }
+
+  function showAddPhotoOptions() {
+    const options = ['Take Photo', 'Choose from Library', 'Cancel'];
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: 2 },
+        (index) => {
+          if (index === 0) takePhoto();
+          else if (index === 1) pickFromLibrary();
+        },
+      );
+    } else {
+      Alert.alert('Add Photo', undefined, [
+        { text: 'Take Photo', onPress: takePhoto },
+        { text: 'Choose from Library', onPress: pickFromLibrary },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
     }
   }
 
@@ -233,7 +268,7 @@ export default function EditPhotosScreen({ route, navigation }: Props) {
           </Pressable>
         ))}
 
-        <TouchableOpacity style={styles.addPhotoButton} onPress={pickPhotos}>
+        <TouchableOpacity style={styles.addPhotoButton} onPress={showAddPhotoOptions}>
           <Text style={styles.addPhotoIcon}>+</Text>
           <Text style={styles.addPhotoLabel}>Add</Text>
         </TouchableOpacity>

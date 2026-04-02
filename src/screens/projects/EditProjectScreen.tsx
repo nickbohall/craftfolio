@@ -194,12 +194,28 @@ export default function EditProjectScreen({ route, navigation }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+    <View style={styles.headerBar}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+        <Text style={styles.headerCancelText}>Cancel</Text>
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Edit Project</Text>
+      <TouchableOpacity
+        onPress={handleSave}
+        style={styles.headerButton}
+        disabled={saving}
+      >
+        {saving ? (
+          <ActivityIndicator size="small" color={Colors.primary} />
+        ) : (
+          <Text style={styles.headerSaveText}>Save</Text>
+        )}
+      </TouchableOpacity>
+    </View>
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.heading}>Edit Project</Text>
 
       {/* Title */}
       <Text style={styles.label}>Title</Text>
@@ -461,27 +477,6 @@ export default function EditProjectScreen({ route, navigation }: Props) {
 
       {/* Error */}
       {error && <Text style={styles.error}>{error}</Text>}
-
-      {/* Save */}
-      <TouchableOpacity
-        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-        disabled={saving}
-        onPress={handleSave}
-      >
-        {saving ? (
-          <ActivityIndicator color={Colors.white} />
-        ) : (
-          <Text style={styles.saveText}>Save Changes</Text>
-        )}
-      </TouchableOpacity>
-
-      {/* Cancel */}
-      <TouchableOpacity
-        style={styles.cancelButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.cancelText}>Cancel</Text>
-      </TouchableOpacity>
     </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -498,16 +493,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.background,
   },
-  content: {
-    paddingTop: 60,
+  headerBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 12,
+  },
+  headerButton: {
+    padding: 4,
+    minWidth: 60,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  headerCancelText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  headerSaveText: {
+    fontSize: 16,
+    color: Colors.text,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
-  },
-  heading: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.text,
-    marginBottom: 8,
   },
   label: {
     fontSize: 13,
@@ -608,32 +624,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 16,
     textAlign: 'center',
-  },
-  saveButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 24,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 32,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  cancelButton: {
-    alignItems: 'center',
-    paddingVertical: 14,
-    marginTop: 12,
-  },
-  cancelText: {
-    color: Colors.textSecondary,
-    fontSize: 16,
-    fontWeight: '500',
   },
   shareRow: {
     backgroundColor: Colors.surface,

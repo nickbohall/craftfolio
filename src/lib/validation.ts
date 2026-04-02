@@ -55,13 +55,14 @@ export function validateProjectDetails(title: string): string | null {
   return null;
 }
 
-export type MaterialType = 'yarn' | 'thread/floss' | 'needle' | 'fabric' | 'other';
+export type MaterialType = 'yarn' | 'thread/floss' | 'needle' | 'fabric' | 'polymer clay' | 'other';
 
 export function getDefaultStashUnit(type: MaterialType | null): string | null {
   switch (type) {
     case 'yarn': return 'skeins';
     case 'thread/floss': return 'skeins';
     case 'fabric': return 'yards';
+    case 'polymer clay': return 'pieces';
     case 'other': return 'pieces';
     case 'needle': return null;
     default: return null;
@@ -83,6 +84,8 @@ export function getVisibleFields(type: MaterialType | null): string[] {
       return ['needle_type', 'needle_size_mm', 'needle_size_us', 'needle_material', 'cable_length_inches'];
     case 'fabric':
       return ['brand', 'color_name', 'fiber_content', 'notes'];
+    case 'polymer clay':
+      return ['brand', 'color_name', 'notes'];
     case 'other':
       return ['brand', 'color_name', 'notes'];
     default:

@@ -70,7 +70,7 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
   const [materials, setMaterials] = useState<SavedMaterial[]>([]);
 
   const isDirty = !savedProjectId && (title.trim().length > 0 || madeFor.trim().length > 0 || !!selectedCraftType || !!dateStarted || !!dateCompleted || hoursLogged.trim().length > 0);
-  useUnsavedChanges(isDirty);
+  const allowNavigation = useUnsavedChanges(isDirty);
 
   useEffect(() => {
     async function fetchCraftTypes() {
@@ -130,6 +130,7 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
       return;
     }
 
+    allowNavigation();
     setSaving(true);
     setError(null);
 
@@ -209,12 +210,21 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
         style={styles.container}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+      <View style={styles.headerBar}>
+        <View style={styles.headerButton} />
+        <Text style={styles.headerTitle}>Materials</Text>
+        <TouchableOpacity
+          style={styles.headerButton}
+          onPress={() => navigation.popToTop()}
+        >
+          <Text style={styles.headerDoneText}>Done</Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Materials</Text>
         <Text style={styles.subtitle}>Add the materials you used for this project.</Text>
 
         {materials.length > 0 && (
@@ -239,12 +249,6 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
           <Text style={styles.addMaterialText}>+ Add Material</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.doneButton}
-          onPress={() => navigation.popToTop()}
-        >
-          <Text style={styles.doneText}>Done</Text>
-        </TouchableOpacity>
       </ScrollView>
       </KeyboardAvoidingView>
     );
@@ -255,12 +259,18 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
+    <View style={styles.headerBar}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
+        <Text style={styles.headerCancelText}>Cancel</Text>
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Project Details</Text>
+      <View style={styles.headerButton} />
+    </View>
     <ScrollView
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={styles.scrollContent}
       keyboardShouldPersistTaps="handled"
     >
-      <Text style={styles.title}>Project Details</Text>
 
       {/* Title */}
       <Text style={styles.label}>Title</Text>
@@ -506,16 +516,37 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  content: {
-    paddingTop: 60,
+  headerBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 56,
+    paddingBottom: 12,
+  },
+  headerButton: {
+    padding: 4,
+    minWidth: 60,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: Colors.text,
+  },
+  headerCancelText: {
+    fontSize: 16,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  headerDoneText: {
+    fontSize: 16,
+    color: Colors.text,
+    fontWeight: '600',
+    textAlign: 'right',
+  },
+  scrollContent: {
     paddingHorizontal: 20,
     paddingBottom: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: Colors.text,
-    marginBottom: 8,
   },
   subtitle: {
     fontSize: 14,
@@ -713,18 +744,6 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 16,
     fontWeight: '500',
-  },
-  doneButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 24,
-    height: 52,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  doneText: {
-    color: Colors.white,
-    fontSize: 16,
-    fontWeight: '600',
   },
   statusRow: {
     flexDirection: 'row',

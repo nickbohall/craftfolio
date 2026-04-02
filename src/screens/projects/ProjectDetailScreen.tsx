@@ -26,6 +26,8 @@ import { supabase } from '../../lib/supabase';
 import { usePremium } from '../../hooks/usePremium';
 import { getMaterialDisplayName } from '../../lib/materialUtils';
 import { getMaterialBadgeColors } from '../../lib/materialColors';
+import { getDefaultStashUnit, isNeedleType } from '../../lib/validation';
+import type { MaterialType } from '../../lib/validation';
 
 const mascotIcon = require('../../../assets/images/mascot-icon.png');
 
@@ -244,6 +246,56 @@ export default function ProjectDetailScreen() {
   const [editQtyValue, setEditQtyValue] = useState('');
   const [editUsageUnit, setEditUsageUnit] = useState<'skeins' | 'grams' | 'yards'>('skeins');
   const [editUnitPickerVisible, setEditUnitPickerVisible] = useState(false);
+
+  // Add to stash
+  const [stashMaterial, setStashMaterial] = useState<Material | null>(null);
+  const [stashQtyValue, setStashQtyValue] = useState('');
+  const [stashUnitPickerVisible, setStashUnitPickerVisible] = useState(false);
+  const [stashUnit, setStashUnit] = useState<string | null>(null);
+  const [savingStash, setSavingStash] = useState(false);
+
+  function openAddToStash(mat: Material) {
+    const defaultUnit = getDefaultStashUnit(mat.material_type as MaterialType);
+    setStashMaterial(mat);
+    setStashQtyValue('');
+    setStashUnit(defaultUnit);
+  }
+
+  async function saveAddToStash() {
+    if (!stashMaterial) return;
+    setSavingStash(true);
+    const needle = isNeedleType(stashMaterial.material_type as MaterialType);
+    const qty = needle ? 1 : (stashQtyValue.trim() ? Number(stashQtyValue.trim()) : null);
+
+    if (!needle && (qty === null || isNaN(qty) || qty <= 0)) {
+      Alert.alert('Quantity required', 'Please enter a quantity to add to your stash.');
+      setSavingStash(false);
+      return;
+    }
+
+    const updates: Record<string, any> = {
+      quantity_in_stash: needle ? 1 : qty,
+      stash_status: 'in_stash',
+    };
+    if (!needle && stashUnit) {
+      updates.stash_unit = stashUnit;
+    }
+
+    await supabase.from('materials').update(updates).eq('id', stashMaterial.id);
+
+    // Update local state so the icon fills immediately
+    setMaterials((prev) =>
+      prev.map((pm) =>
+        pm.materials.id === stashMaterial.id
+          ? { ...pm, materials: { ...pm.materials, quantity_in_stash: updates.quantity_in_stash, stash_unit: updates.stash_unit ?? pm.materials.stash_unit } }
+          : pm
+      )
+    );
+
+    setSavingStash(false);
+    setStashMaterial(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  }
 
   function parseStoredQuantity(stored: string | null): { value: string; unit: 'skeins' | 'grams' | 'yards' } {
     if (!stored) return { value: '', unit: 'skeins' };
@@ -545,9 +597,21 @@ export default function ProjectDetailScreen() {
                         </Text>
                       </TouchableOpacity>
                     </View>
-                    {mat.is_favorited && (
-                      <Ionicons name="heart" size={18} color={Colors.primary} style={styles.materialHeart} />
-                    )}
+                    <View style={styles.materialCardIcons}>
+                      {mat.quantity_in_stash != null ? (
+                        <Ionicons name="cube" size={20} color={Colors.primary} />
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => openAddToStash(mat)}
+                          hitSlop={8}
+                        >
+                          <Ionicons name="cube-outline" size={20} color={Colors.textTertiary} />
+                        </TouchableOpacity>
+                      )}
+                      {mat.is_favorited && (
+                        <Ionicons name="heart" size={18} color={Colors.primary} />
+                      )}
+                    </View>
                   </View>
                 </TouchableOpacity>
               );
@@ -631,6 +695,85 @@ export default function ProjectDetailScreen() {
                 onPress={() => { setEditUsageUnit(unit); setEditUnitPickerVisible(false); }}
               >
                 <Text style={[styles.editQtyUnitRowText, editUsageUnit === unit && styles.editQtyUnitRowTextActive]}>
+                  {unit.charAt(0).toUpperCase() + unit.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add to Stash Modal */}
+      <Modal visible={!!stashMaterial} animationType="fade" transparent>
+        <View style={styles.editQtyOverlay}>
+          <View style={styles.editQtyCard}>
+            <Text style={styles.editQtyTitle}>Add to Stash</Text>
+            {stashMaterial && (
+              <Text style={styles.editQtySubtitle}>
+                {getMaterialTitle(stashMaterial)}
+              </Text>
+            )}
+            {stashMaterial && isNeedleType(stashMaterial.material_type as MaterialType) ? (
+              <Text style={styles.stashNeedleNote}>
+                This will be added to your stash as a tool (no quantity needed).
+              </Text>
+            ) : (
+              <View style={styles.editQtyInputRow}>
+                <TextInput
+                  style={styles.editQtyInput}
+                  value={stashQtyValue}
+                  onChangeText={setStashQtyValue}
+                  placeholder="Quantity"
+                  placeholderTextColor={Colors.textTertiary}
+                  keyboardType="decimal-pad"
+                  autoFocus
+                />
+                {stashMaterial?.material_type === 'thread/floss' ? (
+                  <TouchableOpacity
+                    style={styles.editQtyUnitButton}
+                    onPress={() => setStashUnitPickerVisible(true)}
+                  >
+                    <Text style={styles.editQtyUnit}>{stashUnit ?? 'skeins'}</Text>
+                    <Ionicons name="chevron-down" size={14} color={Colors.textSecondary} />
+                  </TouchableOpacity>
+                ) : stashUnit ? (
+                  <Text style={styles.editQtyUnit}>{stashUnit}</Text>
+                ) : null}
+              </View>
+            )}
+            <View style={styles.editQtyButtons}>
+              <TouchableOpacity
+                style={styles.editQtyCancelBtn}
+                onPress={() => setStashMaterial(null)}
+              >
+                <Text style={styles.editQtyCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.editQtySaveBtn}
+                onPress={saveAddToStash}
+                disabled={savingStash}
+              >
+                <Text style={styles.editQtySaveText}>
+                  {savingStash ? 'Adding...' : 'Add to Stash'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Stash unit picker for thread/floss */}
+      <Modal visible={stashUnitPickerVisible} animationType="slide" transparent>
+        <View style={styles.editQtyOverlay}>
+          <View style={styles.editQtyCard}>
+            <Text style={styles.editQtyTitle}>Unit</Text>
+            {(['skeins', 'cards'] as const).map((unit) => (
+              <TouchableOpacity
+                key={unit}
+                style={[styles.editQtyUnitRow, stashUnit === unit && styles.editQtyUnitRowActive]}
+                onPress={() => { setStashUnit(unit); setStashUnitPickerVisible(false); }}
+              >
+                <Text style={[styles.editQtyUnitRowText, stashUnit === unit && styles.editQtyUnitRowTextActive]}>
                   {unit.charAt(0).toUpperCase() + unit.slice(1)}
                 </Text>
               </TouchableOpacity>
@@ -877,7 +1020,9 @@ const styles = StyleSheet.create({
   materialCardLeft: {
     flex: 1,
   },
-  materialHeart: {
+  materialCardIcons: {
+    alignItems: 'center',
+    gap: 8,
     marginLeft: 8,
     marginTop: 2,
   },
@@ -934,6 +1079,12 @@ const styles = StyleSheet.create({
   materialDetailHint: {
     color: Colors.textTertiary,
     fontStyle: 'italic',
+  },
+  stashNeedleNote: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 20,
+    lineHeight: 20,
   },
   // Edit quantity modal
   editQtyOverlay: {

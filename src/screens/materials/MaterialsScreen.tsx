@@ -63,6 +63,7 @@ type ActiveTab = 'stash' | 'favorites';
 function formatMaterialType(type: string): string {
   if (type === 'thread/floss') return 'Thread / Floss';
   if (type === 'needle') return 'Needle / Hook';
+  if (type === 'polymer clay') return 'Polymer Clay';
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
