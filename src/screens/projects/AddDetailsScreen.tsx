@@ -55,6 +55,7 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
   const [craftTypesLoading, setCraftTypesLoading] = useState(true);
   const [selectedCraftType, setSelectedCraftType] = useState<CraftType | null>(null);
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [customCraftName, setCustomCraftName] = useState('');
   const [dateStarted, setDateStarted] = useState<Date | null>(null);
   const [showDateStartedPicker, setShowDateStartedPicker] = useState(false);
   const [dateCompleted, setDateCompleted] = useState<Date | null>(null);
@@ -88,6 +89,33 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
     }
     fetchCraftTypes();
   }, []);
+
+  async function handleAddCustomCraftType() {
+    const trimmed = customCraftName.trim();
+    if (!trimmed) return;
+
+    // Check if it already exists (case-insensitive)
+    const existing = craftTypes.find((ct) => ct.name.toLowerCase() === trimmed.toLowerCase());
+    if (existing) {
+      setSelectedCraftType(existing);
+      setCustomCraftName('');
+      setPickerVisible(false);
+      return;
+    }
+
+    const { data, error: insertError } = await supabase
+      .from('craft_types')
+      .insert({ name: trimmed, is_custom: true })
+      .select('id, name')
+      .single();
+
+    if (data) {
+      setCraftTypes((prev) => [...prev, data as CraftType].sort((a, b) => a.name.localeCompare(b.name)));
+      setSelectedCraftType(data as CraftType);
+    }
+    setCustomCraftName('');
+    setPickerVisible(false);
+  }
 
   // Refresh materials list when returning from AddMaterialScreen
   const fetchMaterials = useCallback(async () => {
@@ -337,9 +365,29 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
                 <Text style={styles.modalDone}>Done</Text>
               </TouchableOpacity>
             </View>
+            <View style={styles.customCraftRow}>
+              <TextInput
+                style={styles.customCraftInput}
+                value={customCraftName}
+                onChangeText={setCustomCraftName}
+                placeholder="Other — type your own"
+                placeholderTextColor={Colors.textTertiary}
+                returnKeyType="done"
+                onSubmitEditing={handleAddCustomCraftType}
+              />
+              {customCraftName.trim().length > 0 && (
+                <TouchableOpacity
+                  style={styles.customCraftAddBtn}
+                  onPress={handleAddCustomCraftType}
+                >
+                  <Text style={styles.customCraftAddText}>Add</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             <FlatList
               data={craftTypes}
               keyExtractor={(item) => item.id}
+              keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[
@@ -348,6 +396,7 @@ export default function AddDetailsScreen({ route, navigation }: Props) {
                   ]}
                   onPress={() => {
                     setSelectedCraftType(item);
+                    setCustomCraftName('');
                     setPickerVisible(false);
                   }}
                 >
@@ -624,6 +673,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '500',
     color: Colors.text,
+  },
+  customCraftRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+    gap: 10,
+  },
+  customCraftInput: {
+    flex: 1,
+    backgroundColor: Colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 42,
+    fontSize: 15,
+    color: Colors.text,
+  },
+  customCraftAddBtn: {
+    backgroundColor: Colors.success,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    height: 42,
+    justifyContent: 'center',
+  },
+  customCraftAddText: {
+    color: Colors.white,
+    fontSize: 15,
+    fontWeight: '600',
   },
   craftTypeRow: {
     paddingHorizontal: 20,
