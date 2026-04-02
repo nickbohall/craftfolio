@@ -11,6 +11,8 @@ import {
   RefreshControl,
   Switch,
   Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
@@ -20,6 +22,8 @@ import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { getMaterialDisplayName } from '../../lib/materialUtils';
 import { getMaterialBadgeColors } from '../../lib/materialColors';
+import { getDefaultStashUnit, isNeedleType } from '../../lib/validation';
+import type { MaterialType } from '../../lib/validation';
 import { MaterialsSkeleton } from '../../components/SkeletonCards';
 
 const mascotNeutral = require('../../../assets/images/mascot-neutral.png');
@@ -56,6 +60,9 @@ type FavoriteMaterial = {
   needle_size_mm: number | null;
   needle_type: string | null;
   needle_material: string | null;
+  quantity_in_stash: number | null;
+  stash_unit: string | null;
+  stash_status: string | null;
 };
 
 type ActiveTab = 'stash' | 'favorites';
@@ -143,7 +150,7 @@ export default function MaterialsScreen() {
     if (!user) return;
     const { data } = await supabase
       .from('materials')
-      .select('id, material_type, brand, name, color_name, fiber_content, yarn_weight, needle_size_mm, needle_type, needle_material')
+      .select('id, material_type, brand, name, color_name, fiber_content, yarn_weight, needle_size_mm, needle_type, needle_material, quantity_in_stash, stash_unit, stash_status')
       .eq('user_id', user.id)
       .eq('is_favorited', true)
       .order('created_at', { ascending: false });
@@ -212,6 +219,53 @@ export default function MaterialsScreen() {
     }
     setStashMaterials((prev) => prev.filter((m) => !selectedIds.has(m.id)));
     clearSelection();
+  }
+
+  // Add to stash from favorites
+  const [favStashMaterial, setFavStashMaterial] = useState<FavoriteMaterial | null>(null);
+  const [favStashQty, setFavStashQty] = useState('');
+  const [favStashUnit, setFavStashUnit] = useState<string | null>(null);
+
+  function openFavAddToStash(mat: FavoriteMaterial) {
+    const defaultUnit = getDefaultStashUnit(mat.material_type as MaterialType);
+    setFavStashMaterial(mat);
+    setFavStashQty('');
+    setFavStashUnit(defaultUnit);
+  }
+
+  async function saveFavAddToStash() {
+    if (!favStashMaterial) return;
+    const needle = isNeedleType(favStashMaterial.material_type as MaterialType);
+    const qty = needle ? 1 : (favStashQty.trim() ? Number(favStashQty.trim()) : null);
+
+    if (!needle && (qty === null || isNaN(qty) || qty <= 0)) {
+      Alert.alert('Quantity required', 'Please enter a quantity to add to your stash.');
+      return;
+    }
+
+    const updates: Record<string, any> = {
+      quantity_in_stash: needle ? 1 : qty,
+      stash_status: 'in_stash',
+    };
+    if (!needle && favStashUnit) {
+      updates.stash_unit = favStashUnit;
+    }
+
+    await supabase.from('materials').update(updates).eq('id', favStashMaterial.id);
+
+    // Update local favorites state
+    setFavorites((prev) =>
+      prev.map((m) =>
+        m.id === favStashMaterial.id
+          ? { ...m, quantity_in_stash: updates.quantity_in_stash, stash_unit: updates.stash_unit ?? m.stash_unit, stash_status: 'in_stash' }
+          : m
+      )
+    );
+
+    setFavStashMaterial(null);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    // Refresh stash tab so it picks up the new item
+    fetchStash();
   }
 
   // Clear filter when switching tabs
@@ -340,6 +394,7 @@ export default function MaterialsScreen() {
           refreshing={refreshing}
           onRefresh={handleRefresh}
           onUnfavorite={handleUnfavorite}
+          onAddToStash={openFavAddToStash}
           onPressMaterial={(id) => navigation.navigate('AddMaterial', { projectId: '', materialId: id })}
         />
       )}
@@ -379,6 +434,54 @@ export default function MaterialsScreen() {
                 </TouchableOpacity>
               );
             })}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Add to Stash from Favorites Modal */}
+      <Modal visible={!!favStashMaterial} animationType="fade" transparent>
+        <View style={styles.stashModalOverlay}>
+          <View style={styles.stashModalCard}>
+            <Text style={styles.stashModalTitle}>Add to Stash</Text>
+            {favStashMaterial && (
+              <Text style={styles.stashModalSubtitle}>
+                {getMaterialDisplayName(favStashMaterial)}
+              </Text>
+            )}
+            {favStashMaterial && isNeedleType(favStashMaterial.material_type as MaterialType) ? (
+              <Text style={styles.stashModalNote}>
+                This will be added to your stash as a tool (no quantity needed).
+              </Text>
+            ) : (
+              <View style={styles.stashModalInputRow}>
+                <TextInput
+                  style={styles.stashModalInput}
+                  value={favStashQty}
+                  onChangeText={setFavStashQty}
+                  placeholder="Quantity"
+                  placeholderTextColor={Colors.textTertiary}
+                  keyboardType="decimal-pad"
+                  autoFocus
+                />
+                {favStashUnit ? (
+                  <Text style={styles.stashModalUnit}>{favStashUnit}</Text>
+                ) : null}
+              </View>
+            )}
+            <View style={styles.stashModalButtons}>
+              <TouchableOpacity
+                style={styles.stashModalCancelBtn}
+                onPress={() => setFavStashMaterial(null)}
+              >
+                <Text style={styles.stashModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.stashModalSaveBtn}
+                onPress={saveFavAddToStash}
+              >
+                <Text style={styles.stashModalSaveText}>Add to Stash</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -586,6 +689,7 @@ type FavoritesTabProps = {
   refreshing: boolean;
   onRefresh: () => void;
   onUnfavorite: (id: string) => void;
+  onAddToStash: (mat: FavoriteMaterial) => void;
   onPressMaterial: (id: string) => void;
 };
 
@@ -594,6 +698,7 @@ function FavoritesTab({
   refreshing,
   onRefresh,
   onUnfavorite,
+  onAddToStash,
   onPressMaterial,
 }: FavoritesTabProps) {
   if (materials.length === 0) {
@@ -641,13 +746,24 @@ function FavoritesTab({
                 <Text style={styles.materialSecondary} numberOfLines={1}>{secondary}</Text>
               )}
             </View>
-            <TouchableOpacity
-              style={styles.heartButton}
-              onPress={() => onUnfavorite(item.id)}
-              hitSlop={12}
-            >
-              <Ionicons name="heart" size={22} color={Colors.primary} />
-            </TouchableOpacity>
+            <View style={styles.cardIcons}>
+              {item.quantity_in_stash != null ? (
+                <Ionicons name="cube" size={20} color={Colors.primary} />
+              ) : (
+                <TouchableOpacity
+                  onPress={() => onAddToStash(item)}
+                  hitSlop={8}
+                >
+                  <Ionicons name="cube-outline" size={20} color={Colors.textTertiary} />
+                </TouchableOpacity>
+              )}
+              <TouchableOpacity
+                onPress={() => onUnfavorite(item.id)}
+                hitSlop={8}
+              >
+                <Ionicons name="heart" size={20} color={Colors.primary} />
+              </TouchableOpacity>
+            </View>
           </TouchableOpacity>
         );
       }}
@@ -881,6 +997,90 @@ const styles = StyleSheet.create({
   heartButton: {
     padding: 8,
     marginLeft: 8,
+  },
+  cardIcons: {
+    alignItems: 'center',
+    gap: 8,
+    marginLeft: 8,
+    paddingVertical: 4,
+  },
+  // Stash modal (add from favorites)
+  stashModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  stashModalCard: {
+    backgroundColor: Colors.surface,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+  },
+  stashModalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: Colors.text,
+    marginBottom: 4,
+  },
+  stashModalSubtitle: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 16,
+  },
+  stashModalNote: {
+    fontSize: 14,
+    color: Colors.textSecondary,
+    marginBottom: 20,
+    lineHeight: 20,
+  },
+  stashModalInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+  stashModalInput: {
+    flex: 1,
+    backgroundColor: Colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    height: 48,
+    fontSize: 16,
+    color: Colors.text,
+  },
+  stashModalUnit: {
+    fontSize: 15,
+    color: Colors.textSecondary,
+    fontWeight: '500',
+  },
+  stashModalButtons: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  stashModalCancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  stashModalCancelText: {
+    fontSize: 16,
+    color: Colors.error,
+    fontWeight: '500',
+  },
+  stashModalSaveBtn: {
+    backgroundColor: Colors.success,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  stashModalSaveText: {
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
   // Filter
   filterButton: {

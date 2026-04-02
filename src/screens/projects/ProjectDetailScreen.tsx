@@ -297,6 +297,18 @@ export default function ProjectDetailScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   }
 
+  async function toggleFavorite(mat: Material) {
+    const newValue = !mat.is_favorited;
+    await supabase.from('materials').update({ is_favorited: newValue }).eq('id', mat.id);
+    setMaterials((prev) =>
+      prev.map((pm) =>
+        pm.materials.id === mat.id
+          ? { ...pm, materials: { ...pm.materials, is_favorited: newValue } }
+          : pm
+      )
+    );
+  }
+
   function parseStoredQuantity(stored: string | null): { value: string; unit: 'skeins' | 'grams' | 'yards' } {
     if (!stored) return { value: '', unit: 'skeins' };
     const gramsMatch = stored.match(/^([\d.]+)\s*grams?$/i);
@@ -608,9 +620,16 @@ export default function ProjectDetailScreen() {
                           <Ionicons name="cube-outline" size={20} color={Colors.textTertiary} />
                         </TouchableOpacity>
                       )}
-                      {mat.is_favorited && (
-                        <Ionicons name="heart" size={18} color={Colors.primary} />
-                      )}
+                      <TouchableOpacity
+                        onPress={() => toggleFavorite(mat)}
+                        hitSlop={8}
+                      >
+                        <Ionicons
+                          name={mat.is_favorited ? 'heart' : 'heart-outline'}
+                          size={20}
+                          color={mat.is_favorited ? Colors.primary : Colors.textTertiary}
+                        />
+                      </TouchableOpacity>
                     </View>
                   </View>
                 </TouchableOpacity>
