@@ -1268,7 +1268,7 @@ const styles = StyleSheet.create({
   },
   headerCancelText: {
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: Colors.error,
     fontWeight: '500',
   },
   title: {
@@ -1364,7 +1364,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   saveButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.success,
     borderRadius: 24,
     height: 52,
     justifyContent: 'center',

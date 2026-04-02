@@ -181,12 +181,12 @@ const styles = StyleSheet.create({
   },
   headerCancelText: {
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: Colors.error,
     fontWeight: '500',
   },
   headerNextText: {
     fontSize: 16,
-    color: Colors.text,
+    color: Colors.primary,
     fontWeight: '600',
     textAlign: 'right',
   },

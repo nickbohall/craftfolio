@@ -1053,15 +1053,16 @@ const styles = StyleSheet.create({
   },
   addMaterialButton: {
     borderWidth: 2,
-    borderColor: Colors.text,
+    borderColor: Colors.primary,
     borderStyle: 'dashed',
     borderRadius: 12,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 4,
+    backgroundColor: Colors.primaryUltraLight,
   },
   addMaterialText: {
-    color: Colors.text,
+    color: Colors.primary,
     fontSize: 15,
     fontWeight: '500',
   },
@@ -1173,11 +1174,11 @@ const styles = StyleSheet.create({
   },
   editQtyCancelText: {
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: Colors.error,
     fontWeight: '500',
   },
   editQtySaveBtn: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.success,
     borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 20,

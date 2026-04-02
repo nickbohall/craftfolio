@@ -535,12 +535,12 @@ const styles = StyleSheet.create({
   },
   headerCancelText: {
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: Colors.error,
     fontWeight: '500',
   },
   headerDoneText: {
     fontSize: 16,
-    color: Colors.text,
+    color: Colors.success,
     fontWeight: '600',
     textAlign: 'right',
   },
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   saveButton: {
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.success,
     borderRadius: 24,
     height: 52,
     justifyContent: 'center',
@@ -733,15 +733,16 @@ const styles = StyleSheet.create({
   },
   addMaterialButton: {
     borderWidth: 2,
-    borderColor: Colors.text,
+    borderColor: Colors.primary,
     borderStyle: 'dashed',
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 16,
+    backgroundColor: Colors.primaryUltraLight,
   },
   addMaterialText: {
-    color: Colors.text,
+    color: Colors.primary,
     fontSize: 16,
     fontWeight: '500',
   },

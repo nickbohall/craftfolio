@@ -512,12 +512,12 @@ const styles = StyleSheet.create({
   },
   headerCancelText: {
     fontSize: 16,
-    color: Colors.textSecondary,
+    color: Colors.error,
     fontWeight: '500',
   },
   headerSaveText: {
     fontSize: 16,
-    color: Colors.text,
+    color: Colors.success,
     fontWeight: '600',
     textAlign: 'right',
   },
