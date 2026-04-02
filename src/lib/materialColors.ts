@@ -6,7 +6,6 @@ export const MATERIAL_TYPE_COLORS: Record<string, { bg: string; text: string }> 
   'thread/floss':  { bg: '#FCEEF1', text: '#C75B7A' },  // rose
   needle:          { bg: '#FEF3E2', text: '#C4795A' },  // warm orange
   fabric:          { bg: '#E8F5E9', text: '#4A8C5C' },  // green
-  'polymer clay':  { bg: '#FDE8E0', text: '#B5654A' },  // terracotta
   other:           { bg: '#F3EDF7', text: '#7C6B9E' },  // purple
 };
 

@@ -47,7 +47,6 @@ const MATERIAL_TYPES: { label: string; value: MaterialType }[] = [
   { label: 'Thread / Floss', value: 'thread/floss' },
   { label: 'Needle / Hook', value: 'needle' },
   { label: 'Fabric', value: 'fabric' },
-  { label: 'Polymer Clay', value: 'polymer clay' },
   { label: 'Resin / Other', value: 'other' },
 ];
 
@@ -382,7 +381,7 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
 
       // Pre-fill fields from scan results
       if (data.material_type) {
-        const validTypes: MaterialType[] = ['yarn', 'thread/floss', 'needle', 'fabric', 'polymer clay', 'other'];
+        const validTypes: MaterialType[] = ['yarn', 'thread/floss', 'needle', 'fabric', 'other'];
         if (validTypes.includes(data.material_type)) {
           setMaterialType(data.material_type as MaterialType);
         }
@@ -694,7 +693,6 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
             {renderField('Notes', notes, setNotes)}
           </>
         );
-      case 'polymer clay':
       case 'other':
         return (
           <>
@@ -1139,7 +1137,6 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
 function formatMaterialType(type: string): string {
   if (type === 'thread/floss') return 'Thread / Floss';
   if (type === 'needle') return 'Needle / Hook';
-  if (type === 'polymer clay') return 'Polymer Clay';
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 

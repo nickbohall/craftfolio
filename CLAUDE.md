@@ -105,7 +105,7 @@ Seed with ~30 common crafts. Allow custom entry that saves back to this table.
 ### materials
 - id (uuid, PK)
 - user_id (FK → users)
-- material_type (text, nullable — "yarn", "thread/floss", "fabric", "resin", "needle", "hook", "polymer clay", "other")
+- material_type (text, nullable — "yarn", "thread/floss", "fabric", "resin", "needle", "hook", "other")
 - brand (text, nullable)
 - name (text, nullable — yarn line or colorway name e.g. "Cascade 220", "Brownie Points")
 - color_name (text, nullable)
@@ -169,7 +169,6 @@ Field groups by material_type:
 - **thread/floss:** brand, color_name, color_code (e.g. DMC #321), dye_lot, fiber_content, notes
 - **needle/hook:** needle_type, needle_size_mm, needle_size_us, needle_material, cable_length_inches (circulars only)
 - **fabric:** brand, color_name, fiber_content, notes
-- **polymer clay:** brand, color_name, notes
 - **resin / other:** brand, color_name, notes
 
 Never show all columns at once. Only render fields relevant to the selected material_type.
@@ -431,7 +430,7 @@ git add . && git commit -m "feat: add project creation flow"
 - Camera photo capture (take photo + choose from library action sheet)
 - Consistent top header bars with Cancel/Back on all form screens
 - Bulk add material toast feedback with haptic confirmation
-- Polymer clay material type
+- Polymer Clay craft type (seeded)
 
 ---
 

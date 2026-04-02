@@ -29,5 +29,6 @@ insert into craft_types (name, is_custom) values
   ('Mosaic', false),
   ('Soap Making', false),
   ('Dyeing', false),
-  ('Spinning', false)
+  ('Spinning', false),
+  ('Polymer Clay', false)
 on conflict (name) do nothing;
