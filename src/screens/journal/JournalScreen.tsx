@@ -22,13 +22,17 @@ import { Colors } from '../../constants/colors';
 import { Typography } from '../../constants/typography';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
+import { usePremium } from '../../hooks/usePremium';
 import { getCraftTypeColor } from '../../lib/craftColors';
 import { JournalSkeleton } from '../../components/SkeletonCards';
+
+const FREE_PROJECT_LIMIT = 10;
 
 type RootStackParamList = {
   Tabs: undefined;
   AddPhotos: undefined;
   ProjectDetail: { projectId: string };
+  Upgrade: undefined;
 };
 
 type Project = {
@@ -69,6 +73,7 @@ function getStatusBadgeStyle(s: string): { bg: string; text: string } {
 
 export default function JournalScreen() {
   const { user } = useAuth();
+  const { isPremium } = usePremium();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -81,6 +86,14 @@ export default function JournalScreen() {
   const [filterCraft, setFilterCraft] = useState<string | null>(null);
   const [filterMadeFor, setFilterMadeFor] = useState<string | null>(null);
   const [activeModal, setActiveModal] = useState<ActiveModal>(null);
+
+  function handleAddProject() {
+    if (!isPremium && projects.length >= FREE_PROJECT_LIMIT) {
+      navigation.navigate('Upgrade');
+      return;
+    }
+    navigation.navigate('AddPhotos');
+  }
 
   const fetchProjects = useCallback(async () => {
     if (!user) return;
@@ -186,7 +199,7 @@ export default function JournalScreen() {
           <Text style={styles.emptyTitle}>No projects yet</Text>
           <TouchableOpacity
             style={styles.emptyButton}
-            onPress={() => navigation.navigate('AddPhotos')}
+            onPress={handleAddProject}
           >
             <Text style={styles.emptyButtonText}>Start your first project</Text>
           </TouchableOpacity>
@@ -436,7 +449,7 @@ export default function JournalScreen() {
         </View>
       </Modal>
 
-      <FAB onPress={() => navigation.navigate('AddPhotos')} />
+      <FAB onPress={handleAddProject} />
     </View>
   );
 }

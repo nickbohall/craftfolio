@@ -31,10 +31,16 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     checkPremiumStatus()
-      .then(setIsPremium)
+      .then(async (status) => {
+        setIsPremium(status);
+        // Sync is_paid in Supabase to match RevenueCat (handles cross-device purchases)
+        if (user) {
+          try { await supabase.from('users').update({ is_paid: status }).eq('id', user.id); } catch {}
+        }
+      })
       .catch(() => setIsPremium(false))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   const updateDatabase = useCallback(async () => {
     if (!user) return;
@@ -49,10 +55,8 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
         setIsPremium(true);
         await updateDatabase();
       }
-    } catch (e: any) {
-      if (!e.userCancelled) {
-        Alert.alert('Purchase failed', e.message ?? 'Please try again.');
-      }
+    } catch {
+      // Silent return on cancel or failure
     } finally {
       setLoading(false);
     }

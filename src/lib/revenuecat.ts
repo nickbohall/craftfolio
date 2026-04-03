@@ -1,10 +1,13 @@
+import { Platform } from 'react-native';
 import Purchases from 'react-native-purchases';
 
-const API_KEY_ANDROID = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID ?? '';
+const API_KEY = Platform.OS === 'ios'
+  ? (process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS ?? '')
+  : (process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID ?? '');
 const ENTITLEMENT_ID = 'premium';
 
 export async function initializePurchases(userId: string): Promise<void> {
-  Purchases.configure({ apiKey: API_KEY_ANDROID, appUserID: userId });
+  Purchases.configure({ apiKey: API_KEY, appUserID: userId });
 }
 
 export async function getOfferings(): Promise<any> {
