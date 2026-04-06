@@ -1,10 +1,12 @@
 import { Platform } from 'react-native';
 import Purchases from 'react-native-purchases';
+import { supabase } from './supabase';
 
 const API_KEY = Platform.OS === 'ios'
   ? (process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_IOS ?? '')
   : (process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID ?? '');
 const ENTITLEMENT_ID = 'premium';
+const ALREADY_PURCHASED_CODE = 6;
 
 export async function initializePurchases(userId: string): Promise<void> {
   console.log('[RevenueCat] configure', { platform: Platform.OS, hasKey: !!API_KEY, userId });
@@ -14,6 +16,21 @@ export async function initializePurchases(userId: string): Promise<void> {
 export async function getOfferings(): Promise<any> {
   const offerings = await Purchases.getOfferings();
   return offerings.current;
+}
+
+async function syncIsPaid(isPaid: boolean): Promise<void> {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    console.log('[RevenueCat] syncIsPaid: no user, skipping');
+    return;
+  }
+  console.log('[RevenueCat] syncIsPaid: updating is_paid =', isPaid, 'for user', user.id);
+  const { error } = await supabase.from('users').update({ is_paid: isPaid }).eq('id', user.id);
+  if (error) {
+    console.log('[RevenueCat] syncIsPaid error:', error.message);
+  } else {
+    console.log('[RevenueCat] syncIsPaid: success');
+  }
 }
 
 export async function purchasePremium(): Promise<boolean> {
@@ -35,15 +52,39 @@ export async function purchasePremium(): Promise<boolean> {
     return false;
   }
 
-  const { customerInfo } = await Purchases.purchasePackage(pkg);
-  const hasPremium = customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
-  console.log('[RevenueCat] purchase complete, hasPremium:', hasPremium);
-  return hasPremium;
+  try {
+    const { customerInfo } = await Purchases.purchasePackage(pkg);
+    const hasPremium = customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
+    console.log('[RevenueCat] purchase complete, hasPremium:', hasPremium);
+    if (hasPremium) {
+      await syncIsPaid(true);
+    }
+    return hasPremium;
+  } catch (e: any) {
+    // Product already purchased — restore and check entitlement
+    if (e?.code === ALREADY_PURCHASED_CODE || e?.userInfo?.code === ALREADY_PURCHASED_CODE) {
+      console.log('[RevenueCat] ProductAlreadyPurchased — restoring...');
+      const restored = await restorePurchases();
+      console.log('[RevenueCat] restore after already-purchased, hasPremium:', restored);
+      if (restored) {
+        await syncIsPaid(true);
+      }
+      return restored;
+    }
+    // Re-throw all other errors (cancel, network, etc.)
+    throw e;
+  }
 }
 
 export async function restorePurchases(): Promise<boolean> {
+  console.log('[RevenueCat] restoring purchases...');
   const customerInfo = await Purchases.restorePurchases();
-  return customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
+  const hasPremium = customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
+  console.log('[RevenueCat] restore result, hasPremium:', hasPremium);
+  if (hasPremium) {
+    await syncIsPaid(true);
+  }
+  return hasPremium;
 }
 
 export async function checkPremiumStatus(): Promise<boolean> {
