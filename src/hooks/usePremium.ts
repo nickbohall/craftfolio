@@ -49,13 +49,16 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
 
   const purchase = useCallback(async () => {
     try {
+      console.log('[Premium] purchase() called');
       setLoading(true);
       const success = await purchasePremium();
+      console.log('[Premium] purchasePremium returned:', success);
       if (success) {
         setIsPremium(true);
         await updateDatabase();
       }
-    } catch {
+    } catch (e: any) {
+      console.log('[Premium] purchase error:', e?.code, e?.message, e);
       // Silent return on cancel or failure
     } finally {
       setLoading(false);
