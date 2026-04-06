@@ -1,17 +1,23 @@
 import React, { useState, useCallback, useRef } from 'react';
-import { View, Text, Image, TouchableOpacity, Share, Alert, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, Image, TouchableOpacity, Share, Alert, StyleSheet, ActivityIndicator, TextInput } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../../constants/colors';
 import { supabase, signOut } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { usePremium } from '../../hooks/usePremium';
+import { generateSlug } from '../../lib/slugUtils';
 
 export default function ProfileScreen() {
   const { user } = useAuth();
   const { isPremium, devToggle } = usePremium();
   const navigation = useNavigation<any>();
   const [portfolioSlug, setPortfolioSlug] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string>('');
+  const [editingName, setEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState('');
+  const [savingName, setSavingName] = useState(false);
   const [devUnlocked, setDevUnlocked] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const tapCountRef = useRef(0);
@@ -22,14 +28,35 @@ export default function ProfileScreen() {
       if (!user) return;
       supabase
         .from('users')
-        .select('portfolio_slug')
+        .select('portfolio_slug, display_name')
         .eq('id', user.id)
         .single()
         .then(({ data }) => {
-          if (data) setPortfolioSlug((data as any).portfolio_slug ?? null);
+          if (data) {
+            setPortfolioSlug((data as any).portfolio_slug ?? null);
+            setDisplayName((data as any).display_name ?? '');
+          }
         });
     }, [user])
   );
+
+  async function handleSaveName() {
+    if (!user) return;
+    const trimmed = editNameValue.trim();
+    if (!trimmed || trimmed === displayName) {
+      setEditingName(false);
+      return;
+    }
+    setSavingName(true);
+    await supabase
+      .from('users')
+      .update({ display_name: trimmed, portfolio_slug: generateSlug(trimmed) })
+      .eq('id', user.id);
+    setDisplayName(trimmed);
+    setPortfolioSlug(generateSlug(trimmed));
+    setSavingName(false);
+    setEditingName(false);
+  }
 
   function handleDeleteAccount() {
     Alert.alert(
@@ -91,7 +118,40 @@ export default function ProfileScreen() {
           style={styles.mascot}
           resizeMode="contain"
         />
-        <Text style={styles.displayName}>{user?.user_metadata?.display_name ?? 'Crafter'}</Text>
+        {editingName ? (
+          <View style={styles.editNameRow}>
+            <TextInput
+              style={styles.editNameInput}
+              value={editNameValue}
+              onChangeText={setEditNameValue}
+              autoFocus
+              returnKeyType="done"
+              onSubmitEditing={handleSaveName}
+              placeholder="Display name"
+              placeholderTextColor={Colors.textTertiary}
+            />
+            {savingName ? (
+              <ActivityIndicator size="small" color={Colors.success} />
+            ) : (
+              <>
+                <TouchableOpacity onPress={handleSaveName} hitSlop={8}>
+                  <Ionicons name="checkmark-circle" size={24} color={Colors.success} />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => setEditingName(false)} hitSlop={8}>
+                  <Ionicons name="close-circle" size={24} color={Colors.error} />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        ) : (
+          <TouchableOpacity
+            style={styles.nameRow}
+            onPress={() => { setEditNameValue(displayName); setEditingName(true); }}
+          >
+            <Text style={styles.displayName}>{displayName || 'Crafter'}</Text>
+            <Ionicons name="pencil" size={16} color={Colors.textTertiary} style={{ marginLeft: 6 }} />
+          </TouchableOpacity>
+        )}
         <Text style={styles.email}>{user?.email}</Text>
       </View>
 
@@ -189,11 +249,33 @@ const styles = StyleSheet.create({
     height: 80,
     marginBottom: 12,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
   displayName: {
     fontSize: 20,
     fontWeight: '700',
     color: Colors.text,
+  },
+  editNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginBottom: 4,
+  },
+  editNameInput: {
+    backgroundColor: Colors.surfaceElevated,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 40,
+    fontSize: 16,
+    color: Colors.text,
+    minWidth: 180,
+    textAlign: 'center',
   },
   email: {
     fontSize: 14,
