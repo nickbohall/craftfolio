@@ -7,10 +7,17 @@ const API_KEY = Platform.OS === 'ios'
   : (process.env.EXPO_PUBLIC_REVENUECAT_API_KEY_ANDROID ?? '');
 const ENTITLEMENT_ID = 'premium';
 const ALREADY_PURCHASED_CODE = 6;
+let configuredUserId: string | null = null;
 
 export async function initializePurchases(userId: string): Promise<void> {
   console.log('[RevenueCat] configure', { platform: Platform.OS, hasKey: !!API_KEY, userId });
   Purchases.configure({ apiKey: API_KEY, appUserID: userId });
+
+  // Explicitly log in to ensure purchases are linked to this Supabase user
+  console.log('[RevenueCat] calling logIn with userId:', userId);
+  const { customerInfo } = await Purchases.logIn(userId);
+  configuredUserId = userId;
+  console.log('[RevenueCat] logIn complete, RC appUserID:', customerInfo.originalAppUserId);
 }
 
 export async function getOfferings(): Promise<any> {
@@ -34,6 +41,16 @@ async function syncIsPaid(isPaid: boolean): Promise<void> {
 }
 
 export async function purchasePremium(): Promise<boolean> {
+  // Verify correct user is identified before purchasing
+  const customerInfoPre = await Purchases.getCustomerInfo();
+  console.log('[RevenueCat] purchasePremium: RC user at time of purchase:', customerInfoPre.originalAppUserId, '| configured:', configuredUserId);
+
+  // If RC has an anonymous user or mismatched user, re-identify
+  if (configuredUserId && customerInfoPre.originalAppUserId !== configuredUserId) {
+    console.log('[RevenueCat] user mismatch — re-identifying as', configuredUserId);
+    await Purchases.logIn(configuredUserId);
+  }
+
   console.log('[RevenueCat] purchasePremium: fetching offerings...');
   const offerings = await Purchases.getOfferings();
   const currentOffering = offerings.current;
