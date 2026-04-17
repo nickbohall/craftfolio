@@ -153,6 +153,12 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         )}
         <Text style={styles.email}>{user?.email}</Text>
+        {isPremium && (
+          <View style={styles.premiumBadge}>
+            <Ionicons name="sparkles" size={12} color="#4A3D6B" />
+            <Text style={styles.premiumBadgeText}>Premium</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.cardGroup}>
@@ -280,6 +286,22 @@ const styles = StyleSheet.create({
   email: {
     fontSize: 14,
     color: Colors.textSecondary,
+  },
+  premiumBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    marginTop: 8,
+  },
+  premiumBadgeText: {
+    color: '#4A3D6B',
+    fontWeight: '700',
+    fontSize: 11,
+    letterSpacing: 0.5,
   },
   cardGroup: {
     gap: 1,

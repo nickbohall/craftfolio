@@ -30,17 +30,45 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    checkPremiumStatus()
-      .then(async (status) => {
-        setIsPremium(status);
-        // Sync is_paid in Supabase to match RevenueCat (handles cross-device purchases)
-        if (user) {
-          try { await supabase.from('users').update({ is_paid: status }).eq('id', user.id); } catch {}
+    let cancelled = false;
+    (async () => {
+      try {
+        if (!user) {
+          if (!cancelled) setIsPremium(false);
+          return;
         }
-      })
-      .catch(() => setIsPremium(false))
-      .finally(() => setLoading(false));
-  }, [user]);
+
+        const { data, error } = await supabase
+          .from('users')
+          .select('is_paid')
+          .eq('id', user.id)
+          .single();
+        console.log('[Premium] Supabase is_paid raw:', data?.is_paid, '| user:', user.id, '| error:', error?.message);
+
+        const dbPaid = data?.is_paid === true;
+        if (!cancelled) setIsPremium(dbPaid);
+
+        // RevenueCat can only UPGRADE Supabase (false -> true), never downgrade.
+        // Supabase is_paid is the source of truth.
+        let rcPaid = false;
+        try {
+          rcPaid = await checkPremiumStatus();
+        } catch (e: any) {
+          console.log('[Premium] checkPremiumStatus failed:', e?.message ?? e);
+        }
+        console.log('[Premium] RC hasPremium:', rcPaid, '| DB is_paid:', dbPaid, '| resolved isPremium:', dbPaid || rcPaid);
+
+        if (rcPaid && !dbPaid) {
+          console.log('[Premium] RC says paid but DB says not — upgrading DB');
+          await supabase.from('users').update({ is_paid: true }).eq('id', user.id);
+          if (!cancelled) setIsPremium(true);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   const updateDatabase = useCallback(async () => {
     if (!user) return;
@@ -51,15 +79,22 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('[Premium] purchase() called');
       setLoading(true);
-      const success = await purchasePremium();
-      console.log('[Premium] purchasePremium returned:', success);
-      if (success) {
+      const result = await purchasePremium();
+      console.log('[Premium] purchasePremium returned:', result);
+      if (result === 'success') {
         setIsPremium(true);
         await updateDatabase();
+      } else if (result === 'pending') {
+        Alert.alert(
+          'Payment processing',
+          'Your purchase is being processed. You\'ll get access as soon as it completes.',
+        );
       }
+      // 'not_entitled' → silent (user canceled or no offering)
     } catch (e: any) {
       console.log('[Premium] purchase error:', e?.code, e?.message, e);
-      // Silent return on cancel or failure
+      // TODO(debug): remove re-throw before release — added so UpgradeScreen can Alert errors
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -68,11 +103,16 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
   const restore = useCallback(async () => {
     try {
       setLoading(true);
-      const success = await restorePurchases();
-      if (success) {
+      const result = await restorePurchases();
+      if (result === 'success') {
         setIsPremium(true);
         await updateDatabase();
         Alert.alert('Restored', 'Your premium access has been restored.');
+      } else if (result === 'pending') {
+        Alert.alert(
+          'Payment processing',
+          'Your purchase is being processed. You\'ll get access as soon as it completes.',
+        );
       } else {
         Alert.alert('No purchase found', 'We couldn\'t find a previous purchase for this account.');
       }

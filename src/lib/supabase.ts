@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { File as ExpoFile } from 'expo-file-system';
 import type { Database } from '../types/database';
+import { logInPurchases, logOutPurchases } from './revenuecat';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -45,6 +46,12 @@ export async function signUpWithEmail(email: string, password: string, displayNa
 
   if (insertError) throw insertError;
 
+  if (authData.user) {
+    await logInPurchases(authData.user.id).catch((e) =>
+      console.warn('[auth] logInPurchases after signUp failed:', e?.message ?? e)
+    );
+  }
+
   return authData;
 }
 
@@ -55,6 +62,13 @@ export async function signInWithEmail(email: string, password: string) {
   });
 
   if (error) throw error;
+
+  if (data.user) {
+    await logInPurchases(data.user.id).catch((e) =>
+      console.warn('[auth] logInPurchases after signIn failed:', e?.message ?? e)
+    );
+  }
+
   return data;
 }
 
@@ -88,11 +102,17 @@ export async function signInWithGoogle(): Promise<void> {
     const refreshToken = hashParams.get('refresh_token');
 
     if (accessToken && refreshToken) {
-      const { error: sessionError } = await supabase.auth.setSession({
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
         access_token: accessToken,
         refresh_token: refreshToken,
       });
       if (sessionError) throw sessionError;
+
+      if (sessionData.user) {
+        await logInPurchases(sessionData.user.id).catch((e) =>
+          console.warn('[auth] logInPurchases after Google signIn failed:', e?.message ?? e)
+        );
+      }
     }
   }
 }
@@ -103,6 +123,9 @@ export async function resetPassword(email: string) {
 }
 
 export async function signOut() {
+  await logOutPurchases().catch((e) =>
+    console.warn('[auth] logOutPurchases during signOut failed:', e?.message ?? e)
+  );
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
