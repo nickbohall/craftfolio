@@ -9,8 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { signUpWithEmail, signInWithGoogle } from '../../lib/supabase';
+import { signUpWithEmail, signInWithGoogle, signInWithApple } from '../../lib/supabase';
 import { Colors } from '../../constants/colors';
 import { validateSignUp } from '../../lib/validation';
 
@@ -35,6 +36,16 @@ export default function SignUpScreen({ navigation }: Props) {
       setError(e.message || 'Failed to sign in with Google.');
     } finally {
       setGoogleLoading(false);
+    }
+  }
+
+  async function handleAppleSignIn() {
+    setError('');
+    try {
+      await signInWithApple();
+    } catch (e: any) {
+      if (e?.code === 'ERR_REQUEST_CANCELED') return;
+      setError(e.message || 'Failed to sign in with Apple.');
     }
   }
 
@@ -117,6 +128,16 @@ export default function SignUpScreen({ navigation }: Props) {
           <Text style={styles.dividerText}>or</Text>
           <View style={styles.dividerLine} />
         </View>
+
+        {Platform.OS === 'ios' && (
+          <AppleAuthentication.AppleAuthenticationButton
+            buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_UP}
+            buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+            cornerRadius={24}
+            style={styles.appleButton}
+            onPress={handleAppleSignIn}
+          />
+        )}
 
         <TouchableOpacity
           style={[styles.googleButton, googleLoading && styles.buttonDisabled]}
@@ -219,6 +240,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     color: Colors.textSecondary,
     fontSize: 14,
+  },
+  appleButton: {
+    height: 52,
+    alignSelf: 'stretch',
+    marginBottom: 12,
   },
   googleButton: {
     flexDirection: 'row',

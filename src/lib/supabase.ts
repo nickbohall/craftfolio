@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import { File as ExpoFile } from 'expo-file-system';
 import type { Database } from '../types/database';
 import { logInPurchases, logOutPurchases } from './revenuecat';
@@ -47,9 +49,9 @@ export async function signUpWithEmail(email: string, password: string, displayNa
   if (insertError) throw insertError;
 
   if (authData.user) {
-    await logInPurchases(authData.user.id).catch((e) =>
-      console.warn('[auth] logInPurchases after signUp failed:', e?.message ?? e)
-    );
+    await logInPurchases(authData.user.id).catch((e) => {
+      if (__DEV__) console.warn('[auth] logInPurchases after signUp failed:', e?.message ?? e);
+    });
   }
 
   return authData;
@@ -64,9 +66,9 @@ export async function signInWithEmail(email: string, password: string) {
   if (error) throw error;
 
   if (data.user) {
-    await logInPurchases(data.user.id).catch((e) =>
-      console.warn('[auth] logInPurchases after signIn failed:', e?.message ?? e)
-    );
+    await logInPurchases(data.user.id).catch((e) => {
+      if (__DEV__) console.warn('[auth] logInPurchases after signIn failed:', e?.message ?? e);
+    });
   }
 
   return data;
@@ -109,12 +111,70 @@ export async function signInWithGoogle(): Promise<void> {
       if (sessionError) throw sessionError;
 
       if (sessionData.user) {
-        await logInPurchases(sessionData.user.id).catch((e) =>
-          console.warn('[auth] logInPurchases after Google signIn failed:', e?.message ?? e)
-        );
+        await logInPurchases(sessionData.user.id).catch((e) => {
+          if (__DEV__) console.warn('[auth] logInPurchases after Google signIn failed:', e?.message ?? e);
+        });
       }
     }
   }
+}
+
+export async function signInWithApple(): Promise<void> {
+  const rawNonce = Crypto.randomUUID();
+  const hashedNonce = await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    rawNonce
+  );
+
+  const credential = await AppleAuthentication.signInAsync({
+    requestedScopes: [
+      AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+      AppleAuthentication.AppleAuthenticationScope.EMAIL,
+    ],
+    nonce: hashedNonce,
+  });
+
+  if (!credential.identityToken) {
+    throw new Error('Apple Sign-In did not return an identity token.');
+  }
+
+  const { data, error } = await supabase.auth.signInWithIdToken({
+    provider: 'apple',
+    token: credential.identityToken,
+    nonce: rawNonce,
+  });
+
+  if (error) throw error;
+  if (!data.user) throw new Error('Apple Sign-In succeeded but no user returned.');
+
+  // Apple only returns fullName/email on the FIRST sign-in. Persist immediately.
+  const appleDisplayName = [credential.fullName?.givenName, credential.fullName?.familyName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+
+  const { data: existing } = await supabase
+    .from('users')
+    .select('id, display_name')
+    .eq('id', data.user.id)
+    .maybeSingle();
+
+  if (!existing) {
+    const displayName = appleDisplayName || data.user.email?.split('@')[0] || 'Crafter';
+    const { error: insertError } = await supabase.from('users').insert({
+      id: data.user.id,
+      email: data.user.email ?? credential.email ?? '',
+      display_name: displayName,
+      portfolio_slug: generateSlug(displayName),
+    });
+    if (insertError && __DEV__) {
+      console.warn('[auth] users insert after Apple signIn failed:', insertError.message);
+    }
+  }
+
+  await logInPurchases(data.user.id).catch((e) => {
+    if (__DEV__) console.warn('[auth] logInPurchases after Apple signIn failed:', e?.message ?? e);
+  });
 }
 
 export async function resetPassword(email: string) {
@@ -123,16 +183,22 @@ export async function resetPassword(email: string) {
 }
 
 export async function signOut() {
-  await logOutPurchases().catch((e) =>
-    console.warn('[auth] logOutPurchases during signOut failed:', e?.message ?? e)
-  );
+  await logOutPurchases().catch((e) => {
+    if (__DEV__) console.warn('[auth] logOutPurchases during signOut failed:', e?.message ?? e);
+  });
   const { error } = await supabase.auth.signOut();
   if (error) throw error;
 }
 
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB
+
 export async function uploadProjectPhoto(localUri: string, userId: string): Promise<string> {
   const file = new ExpoFile(localUri);
   const arrayBuffer = await file.arrayBuffer();
+
+  if (arrayBuffer.byteLength > MAX_PHOTO_BYTES) {
+    throw new Error('Photo exceeds 10 MB limit. Please choose a smaller image.');
+  }
 
   const filename = `${userId}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
 

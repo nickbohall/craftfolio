@@ -43,7 +43,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
           .select('is_paid')
           .eq('id', user.id)
           .single();
-        console.log('[Premium] Supabase is_paid raw:', data?.is_paid, '| user:', user.id, '| error:', error?.message);
+        if (__DEV__) console.log('[Premium] Supabase is_paid raw:', data?.is_paid, '| user:', user.id, '| error:', error?.message);
 
         const dbPaid = data?.is_paid === true;
         if (!cancelled) setIsPremium(dbPaid);
@@ -54,12 +54,12 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
         try {
           rcPaid = await checkPremiumStatus();
         } catch (e: any) {
-          console.log('[Premium] checkPremiumStatus failed:', e?.message ?? e);
+          if (__DEV__) console.log('[Premium] checkPremiumStatus failed:', e?.message ?? e);
         }
-        console.log('[Premium] RC hasPremium:', rcPaid, '| DB is_paid:', dbPaid, '| resolved isPremium:', dbPaid || rcPaid);
+        if (__DEV__) console.log('[Premium] RC hasPremium:', rcPaid, '| DB is_paid:', dbPaid, '| resolved isPremium:', dbPaid || rcPaid);
 
         if (rcPaid && !dbPaid) {
-          console.log('[Premium] RC says paid but DB says not — upgrading DB');
+          if (__DEV__) console.log('[Premium] RC says paid but DB says not — upgrading DB');
           await supabase.from('users').update({ is_paid: true }).eq('id', user.id);
           if (!cancelled) setIsPremium(true);
         }
@@ -77,10 +77,10 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
 
   const purchase = useCallback(async () => {
     try {
-      console.log('[Premium] purchase() called');
+      if (__DEV__) console.log('[Premium] purchase() called');
       setLoading(true);
       const result = await purchasePremium();
-      console.log('[Premium] purchasePremium returned:', result);
+      if (__DEV__) console.log('[Premium] purchasePremium returned:', result);
       if (result === 'success') {
         setIsPremium(true);
         await updateDatabase();
@@ -92,7 +92,7 @@ export function PremiumProvider({ children }: { children: React.ReactNode }) {
       }
       // 'not_entitled' → silent (user canceled or no offering)
     } catch (e: any) {
-      console.log('[Premium] purchase error:', e?.code, e?.message, e);
+      if (__DEV__) console.log('[Premium] purchase error:', e?.code, e?.message, e);
       // TODO(debug): remove re-throw before release — added so UpgradeScreen can Alert errors
       throw e;
     } finally {

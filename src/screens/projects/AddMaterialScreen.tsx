@@ -363,7 +363,7 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
       const base64 = btoa(binary);
       const mime_type = 'image/jpeg';
 
-      console.log('Scan: sending image, size:', base64.length);
+      if (__DEV__) console.log('Scan: sending image, size:', base64.length);
       const { data: rawData, error: fnError } = await supabase.functions.invoke('scan-material-label', {
         body: { image_base64: base64, mime_type },
       });
@@ -371,8 +371,8 @@ export default function AddMaterialScreen({ route, navigation }: Props) {
       // data may be a string or object depending on Supabase client version
       const data = typeof rawData === 'string' ? JSON.parse(rawData) : rawData;
 
-      console.log('Scan response:', JSON.stringify(data));
-      console.log('Scan error:', fnError?.message ?? fnError);
+      if (__DEV__) console.log('Scan response:', JSON.stringify(data));
+      if (__DEV__) console.log('Scan error:', fnError?.message ?? fnError);
 
       if (fnError || !data) {
         setScanning(false);

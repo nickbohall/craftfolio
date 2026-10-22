@@ -431,6 +431,7 @@ git add . && git commit -m "feat: add project creation flow"
 - Consistent top header bars with Cancel/Back on all form screens
 - Bulk add material toast feedback with haptic confirmation
 - Polymer Clay craft type (seeded)
+- Sign in with Apple (iOS) — added to resolve App Review 4.8 rejection
 
 ---
 
@@ -449,8 +450,6 @@ git add . && git commit -m "feat: add project creation flow"
 
 ### Planned Features (v1 polish)
 - Filter projects by status on Journal screen
-- Google auth
-- Apple auth (blocking for iOS App Store)
 - Onboarding flow for new users
 
 ---
